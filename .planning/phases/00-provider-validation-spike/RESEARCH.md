@@ -697,7 +697,9 @@ These are NOT pytest tests — they are bash-runnable assertion scripts. Phase 0
 | Spike script accidentally calls a destructive TV MCP tool (e.g., `alert_delete` for a real alert the user has) | Tampering | The smoke test only calls READ tools (`chart_get_state`, `data_get_ohlcv`, `quote_get`, `tv_health_check`, `list_tools`) and TWO writes that are reversible: `chart_set_symbol` and `chart_set_timeframe`. Do NOT call `draw_shape`, `alert_create`, `alert_delete`, `pine_set_source`, or any tool that mutates persistent TV state. Add this as an explicit allowlist in the spike script. |
 | Spike script crashes leave the TV chart in a weird state (wrong symbol, wrong timeframe) | Availability (operator UX) | At the end of the smoke test (or in a `try/finally`), reset TV's chart to its original symbol/timeframe (capture initial state via `chart_get_state` at session start, restore at end). |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+Resolved during research-to-plan handoff via operator answers; recorded here for traceability.
 
 There should be very few open questions for a spike phase — the spike is itself the answer-finding mechanism. The remaining open items are:
 
