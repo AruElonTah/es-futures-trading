@@ -246,6 +246,38 @@ class RthFilter:
         missing = expected.difference(present)
         return [ts.to_pydatetime() for ts in missing.sort_values()]
 
+    def find_gaps_as_dataframe(
+        self,
+        df: pd.DataFrame,
+        symbol: str,
+        timeframe: str,
+        start: datetime,
+        end: datetime,
+    ) -> pd.DataFrame:
+        """Return the gap set shaped for `DuckDBStore.upsert_gaps` (Plan 04).
+
+        Columns: ``[symbol, timeframe, ts_utc]``. One row per missing bar,
+        sorted ascending by ts_utc. Empty input → empty DataFrame with the
+        same column set (so Plan 04 can blindly INSERT without a length
+        guard).
+        """
+        gaps = self.find_gaps(df, symbol, timeframe, start, end)
+        if not gaps:
+            return pd.DataFrame(
+                {
+                    "symbol": pd.Series([], dtype="object"),
+                    "timeframe": pd.Series([], dtype="object"),
+                    "ts_utc": pd.Series([], dtype="datetime64[ns, UTC]"),
+                }
+            )
+        return pd.DataFrame(
+            {
+                "symbol": [symbol] * len(gaps),
+                "timeframe": [timeframe] * len(gaps),
+                "ts_utc": [pd.Timestamp(g) for g in gaps],
+            }
+        )
+
 
 # ---------------------------------------------------------------------------
 # Rollover-seam detector (Pattern 4) — MD-08
