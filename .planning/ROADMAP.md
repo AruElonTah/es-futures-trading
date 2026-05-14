@@ -44,6 +44,13 @@ A 9-phase plan (Phase 0 + Phases 1–8) that builds a single-operator intraday E
 - Output unblocks Phase 1's `DataSource` choice and the v1 working symbol.
 - All Phase 4+ optimization runs reference this ADR by hash via `runs.adr_hash`.
 
+**Plans:** 3 plans (Plan 1 + Plan 2 run in parallel as wave 1; Plan 3 closes the phase as wave 2)
+
+Plans:
+- [ ] 00-01-PLAN.md — Twelve Data probe + SPY 1m backfill rate-limit budget (parallel with Plan 2)
+- [ ] 00-02-PLAN.md — TradingView MCP happy-path smoke + restart-cycle resilience test (parallel with Plan 1)
+- [ ] 00-03-PLAN.md — Vendor comparison + MADR ADR authoring (closes Phase 0; depends on Plans 1 and 2)
+
 ---
 
 ### Phase 1: Foundation + Data In
@@ -240,7 +247,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Provider Validation Spike | 0/TBD | Not started | - |
+| 0. Provider Validation Spike | 0/3 | Planned | - |
 | 1. Foundation + Data In | 0/TBD | Not started | - |
 | 2. Strategy Engine + Indicators | 0/TBD | Not started | - |
 | 3. Vertical MVP Slice + Backtester | 0/TBD | Not started | - |
