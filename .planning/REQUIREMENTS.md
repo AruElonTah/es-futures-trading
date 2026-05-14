@@ -15,7 +15,7 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 - [ ] **FND-04**: `gitleaks` pre-commit hook blocks any API key / .env content from entering git history
 - [ ] **FND-05**: Repo-wide UTC discipline: every timestamp stored as tz-aware UTC; pre-commit lint forbids `datetime.now()` and `datetime.utcnow()` without explicit timezone
 - [x] **FND-06**: `instruments.py` single-source-of-truth registry exposes `tick_value`, `point_value`, `tick_size`, `session_open_et`, `session_close_et` for ES, MES, SPY (proxy); every dollar-denominated calc reads from it (no magic numbers)
-- [ ] **FND-07**: `EventBus` (in-process asyncio pub/sub) with typed topics: `bars`, `signals`, `risk_decisions`, `fills`, `positions`, `equity`; deterministic event ordering enforced
+- [x] **FND-07**: `EventBus` (in-process asyncio pub/sub) with typed topics: `bars`, `signals`, `risk_decisions`, `fills`, `positions`, `equity`; deterministic event ordering enforced
 - [ ] **FND-08**: Every run logs `git_sha / data_hash / param_hash / seed` to a `runs` table; reproducibility CI test asserts same input → bitwise-identical equity curve
 - [x] **FND-09**: `structlog` JSON logging with correlation IDs threaded through every async boundary
 - [ ] **FND-10**: Provider-validation ADR committed to `.planning/decisions/` documenting (a) Twelve Data's ES coverage as of the ADR date, (b) the chosen v1 primary feed (TradingView MCP) and rationale, (c) the eventual futures-aware swap candidate (Databento / Polygon Futures / IB)
@@ -26,10 +26,10 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 - [ ] **MD-02**: `TradingViewDataSource` implementation pulls bars via TradingView MCP `data_get_ohlcv` (live polling + replay-driven historical); reconnects transparently when TV restarts
 - [ ] **MD-03**: `TwelveDataSource` implementation (secondary) pulls 1m / 5m / 15m bars from Twelve Data REST for SPY (and any other Twelve-Data-supported proxy); used for headless CI runs and cross-vendor reconciliation
 - [ ] **MD-04**: Bars persisted to DuckDB + Hive-partitioned Parquet (`symbol=/year=/month=`) with idempotent upsert keyed on `(symbol, tf, ts_utc)`; single-writer convention enforced (FastAPI process holds the only writer connection)
-- [ ] **MD-05**: RTH session filter applies the **CME equity-index calendar** (`pandas_market_calendars` `CME_Equity`, NOT NYSE) including half-days and exchange holidays
+- [x] **MD-05**: RTH session filter applies the **CME equity-index calendar** (`pandas_market_calendars` `CME_Equity`, NOT NYSE) including half-days and exchange holidays
 - [x] **MD-06**: Bar timestamps documented as **open-time** (matching TradingView and Twelve Data convention); helper functions enforce next-bar reference everywhere downstream
-- [ ] **MD-07**: Bar-gap detector flags missing bars within RTH and writes them to a `bar_gaps` table; UI surfaces gaps before any backtest is run on the affected window
-- [ ] **MD-08**: Continuous-contract rollover-seam detector flags 3rd-Friday-of-Mar/Jun/Sep/Dec boundary bars; strategies receive a `rollover_seam: bool` field and ORB masks them out
+- [x] **MD-07**: Bar-gap detector flags missing bars within RTH and writes them to a `bar_gaps` table; UI surfaces gaps before any backtest is run on the affected window
+- [x] **MD-08**: Continuous-contract rollover-seam detector flags 3rd-Friday-of-Mar/Jun/Sep/Dec boundary bars; strategies receive a `rollover_seam: bool` field and ORB masks them out
 - [ ] **MD-09**: CLI command `seed_bars.py --symbol <SYM> --tf <TF> --from <DATE> --to <DATE>` backfills history through the configured `DataSource`
 - [ ] **MD-10**: Daily reconciliation pass compares same-window TradingView bars vs Twelve Data SPY-proxy bars (when both are available); divergences > 0.05% on price or > 5% on volume raise an alert in the audit log
 
@@ -187,7 +187,7 @@ Populated 2026-05-14 during roadmap creation. Every v1 REQ-ID maps to exactly on
 | FND-04 | Phase 1 | Pending |
 | FND-05 | Phase 1 | Pending |
 | FND-06 | Phase 1 | Complete |
-| FND-07 | Phase 1 | Pending |
+| FND-07 | Phase 1 | Complete |
 | FND-08 | Phase 1 | Pending |
 | FND-09 | Phase 1 | Complete |
 | FND-10 | Phase 0 | Done |
@@ -195,10 +195,10 @@ Populated 2026-05-14 during roadmap creation. Every v1 REQ-ID maps to exactly on
 | MD-02 | Phase 1 | Pending |
 | MD-03 | Phase 1 | Pending |
 | MD-04 | Phase 1 | Pending |
-| MD-05 | Phase 1 | Pending |
+| MD-05 | Phase 1 | Complete |
 | MD-06 | Phase 1 | Complete |
-| MD-07 | Phase 1 | Pending |
-| MD-08 | Phase 1 | Pending |
+| MD-07 | Phase 1 | Complete |
+| MD-08 | Phase 1 | Complete |
 | MD-09 | Phase 1 | Pending |
 | MD-10 | Phase 6 | Pending |
 | STR-01 | Phase 2 | Pending |
