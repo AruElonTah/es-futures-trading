@@ -9,8 +9,8 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 
 ### Foundation & Reproducibility
 
-- [ ] **FND-01**: Project scaffolded as a `uv` workspace monorepo with `packages/{trading-core, api, tv-bridge}` Python packages and `apps/web/` Next.js app; `uv.lock` committed before any backtest is run
-- [ ] **FND-02**: `pyproject.toml` pins exact dependencies: Python 3.11–3.12, `vectorbt==1.0.0`, `pandas>=2.2,<3.0`, FastAPI, Pydantic v2, DuckDB, structlog, httpx, pytest, hypothesis, respx, freezegun
+- [x] **FND-01**: Project scaffolded as a `uv` workspace monorepo with `packages/{trading-core, api, tv-bridge}` Python packages and `apps/web/` Next.js app; `uv.lock` committed before any backtest is run
+- [x] **FND-02**: `pyproject.toml` pins exact dependencies: Python 3.11–3.12, `vectorbt==1.0.0`, `pandas>=2.2,<3.0`, FastAPI, Pydantic v2, DuckDB, structlog, httpx, pytest, hypothesis, respx, freezegun
 - [ ] **FND-03**: Pydantic Settings loader merges `.env` (secrets, gitignored) + `config/*.yaml` (system / risk / strategy params); `.env.example` committed
 - [ ] **FND-04**: `gitleaks` pre-commit hook blocks any API key / .env content from entering git history
 - [ ] **FND-05**: Repo-wide UTC discipline: every timestamp stored as tz-aware UTC; pre-commit lint forbids `datetime.now()` and `datetime.utcnow()` without explicit timezone
@@ -181,8 +181,8 @@ Populated 2026-05-14 during roadmap creation. Every v1 REQ-ID maps to exactly on
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 | Phase 1 | Pending |
-| FND-02 | Phase 1 | Pending |
+| FND-01 | Phase 1 | Complete |
+| FND-02 | Phase 1 | Complete |
 | FND-03 | Phase 1 | Pending |
 | FND-04 | Phase 1 | Pending |
 | FND-05 | Phase 1 | Pending |
