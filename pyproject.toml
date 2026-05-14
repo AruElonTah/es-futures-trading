@@ -32,6 +32,11 @@ testpaths = [
     "packages/api/tests",
     "packages/tv-bridge/tests",
 ]
+markers = [
+    # Plan 01-05 Task 1: gates the pre-commit hook subprocess tests.
+    # Plan 01-05 Task 2: gates the seed_bars CLI subprocess tests.
+    "integration: subprocess-driven tests that shell out to pre-commit / a script CLI",
+]
 
 [tool.coverage.run]
 source = [
