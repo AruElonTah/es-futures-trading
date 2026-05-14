@@ -190,7 +190,7 @@ Populated 2026-05-14 during roadmap creation. Every v1 REQ-ID maps to exactly on
 | FND-07 | Phase 1 | Pending |
 | FND-08 | Phase 1 | Pending |
 | FND-09 | Phase 1 | Pending |
-| FND-10 | Phase 0 | Pending |
+| FND-10 | Phase 0 | Done |
 | MD-01 | Phase 1 | Pending |
 | MD-02 | Phase 1 | Pending |
 | MD-03 | Phase 1 | Pending |

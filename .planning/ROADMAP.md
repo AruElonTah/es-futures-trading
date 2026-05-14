@@ -15,7 +15,7 @@ A 9-phase plan (Phase 0 + Phases 1–8) that builds a single-operator intraday E
 - Integer phases (0, 1, 2, …): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 0: Provider Validation Spike** - Lock the v1 primary data feed via ADR; smoke-test TradingView MCP and Twelve Data coverage before any strategy work begins
+- [x] **Phase 0: Provider Validation Spike** - Lock the v1 primary data feed via ADR; smoke-test TradingView MCP and Twelve Data coverage before any strategy work begins (completed 2026-05-14)
 - [ ] **Phase 1: Foundation + Data In** - uv workspace scaffold, repo-wide UTC/RTH discipline, `instruments.py` SoT, `DataSource` protocol with TV-primary + Twelve-Data-secondary implementations, DuckDB+Parquet storage with gap/rollover detection, `seed_bars.py` CLI, reproducibility scaffolding
 - [ ] **Phase 2: Strategy Engine + Indicators** - `Strategy` protocol, `StrategyContext`, look-ahead-safe indicators (ATR Wilder / VWAP / EMA / ADR), `ORBStrategy` reference implementation, YAML strategy registration
 - [ ] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel
@@ -44,12 +44,12 @@ A 9-phase plan (Phase 0 + Phases 1–8) that builds a single-operator intraday E
 - Output unblocks Phase 1's `DataSource` choice and the v1 working symbol.
 - All Phase 4+ optimization runs reference this ADR by hash via `runs.adr_hash`.
 
-**Plans:** 3 plans (Plan 1 + Plan 2 run in parallel as wave 1; Plan 3 closes the phase as wave 2)
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 00-01-PLAN.md — Twelve Data probe + SPY 1m backfill rate-limit budget (parallel with Plan 2)
-- [ ] 00-02-PLAN.md — TradingView MCP happy-path smoke + restart-cycle resilience test (parallel with Plan 1)
-- [ ] 00-03-PLAN.md — Vendor comparison + MADR ADR authoring (closes Phase 0; depends on Plans 1 and 2)
+- [x] 00-01-PLAN.md — Twelve Data probe + SPY 1m backfill rate-limit budget (parallel with Plan 2)
+- [x] 00-02-PLAN.md — TradingView MCP happy-path smoke + restart-cycle resilience test (parallel with Plan 1)
+- [x] 00-03-PLAN.md — Vendor comparison + MADR ADR authoring (closes Phase 0; depends on Plans 1 and 2)
 
 ---
 
@@ -247,7 +247,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Provider Validation Spike | 0/3 | Planned | - |
+| 0. Provider Validation Spike | 3/3 | Complete   | 2026-05-14 |
 | 1. Foundation + Data In | 0/TBD | Not started | - |
 | 2. Strategy Engine + Indicators | 0/TBD | Not started | - |
 | 3. Vertical MVP Slice + Backtester | 0/TBD | Not started | - |
