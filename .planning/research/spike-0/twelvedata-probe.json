@@ -1,0 +1,208 @@
+{
+  "probed_at_utc": "2026-05-14T17:11:03.517307+00:00",
+  "twelvedata_endpoint_base": "https://api.twelvedata.com",
+  "probes": {
+    "stocks_ES": {
+      "url": "https://api.twelvedata.com/stocks?symbol=ES&apikey=<TWELVEDATA_API_KEY>",
+      "http_status": 200,
+      "headers": {
+        "api-credits-used": null,
+        "api-credits-left": null
+      },
+      "body": {
+        "data": [
+          {
+            "symbol": "ES",
+            "name": "Eversource Energy",
+            "currency": "MXN",
+            "exchange": "BMV",
+            "mic_code": "XMEX",
+            "country": "Mexico",
+            "type": "Common Stock",
+            "figi_code": "BBG00YD8P096",
+            "cfi_code": "ESVUFR",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          },
+          {
+            "symbol": "ES",
+            "name": "Eversource Energy",
+            "currency": "USD",
+            "exchange": "NYSE",
+            "mic_code": "XNYS",
+            "country": "United States",
+            "type": "Common Stock",
+            "figi_code": "BBG000BQ8910",
+            "cfi_code": "ESVUFR",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          },
+          {
+            "symbol": "ES",
+            "name": "Eversource Energy",
+            "currency": "EUR",
+            "exchange": "VSE",
+            "mic_code": "XWBO",
+            "country": "Austria",
+            "type": "Common Stock",
+            "figi_code": "BBG011RJDTS7",
+            "cfi_code": "ESVUFR",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          }
+        ],
+        "count": 3,
+        "status": "ok"
+      }
+    },
+    "commodities_ES": {
+      "url": "https://api.twelvedata.com/commodities?symbol=ES&apikey=<TWELVEDATA_API_KEY>",
+      "http_status": 200,
+      "headers": {
+        "api-credits-used": null,
+        "api-credits-left": null
+      },
+      "body": {
+        "data": [],
+        "count": 0,
+        "status": "ok"
+      }
+    },
+    "etf_SPY": {
+      "url": "https://api.twelvedata.com/etf?symbol=SPY&apikey=<TWELVEDATA_API_KEY>",
+      "http_status": 200,
+      "headers": {
+        "api-credits-used": null,
+        "api-credits-left": null
+      },
+      "body": {
+        "data": [
+          {
+            "symbol": "SPY",
+            "name": "SPDR S&P 500 ETF Trust",
+            "currency": "AUD",
+            "exchange": "CXA",
+            "mic_code": "CXAC",
+            "country": "Australia",
+            "figi_code": "BBG0079MWXR9",
+            "cfi_code": "CECILU",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          },
+          {
+            "symbol": "SPY",
+            "name": "SS SPDR S&P 500 ETF Trust - CEDEAR",
+            "currency": "ARS",
+            "exchange": "BCBA",
+            "mic_code": "XBUE",
+            "country": "Argentina",
+            "figi_code": "BBG014LSN0G2",
+            "cfi_code": "ESVUFR",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          },
+          {
+            "symbol": "SPY",
+            "name": "SPDR S&P 500 ETF Trust",
+            "currency": "AUD",
+            "exchange": "ASX",
+            "mic_code": "XASX",
+            "country": "Australia",
+            "figi_code": "BBG0079MWXL5",
+            "cfi_code": "CEOJLU",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          },
+          {
+            "symbol": "SPY",
+            "name": "SPDR S&P 500 ETF Trust",
+            "currency": "MXN",
+            "exchange": "BMV",
+            "mic_code": "XMEX",
+            "country": "Mexico",
+            "figi_code": "BBG000CG49V2",
+            "cfi_code": "CECJLU",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          },
+          {
+            "symbol": "SPY",
+            "name": "SPDR S&P 500 ETF Trust",
+            "currency": "USD",
+            "exchange": "NYSE",
+            "mic_code": "ARCX",
+            "country": "United States",
+            "figi_code": "BBG000BDTF76",
+            "cfi_code": "CECILU",
+            "isin": "request_access_via_add_ons",
+            "cusip": "request_access_via_add_ons"
+          }
+        ],
+        "count": 5,
+        "status": "ok"
+      }
+    },
+    "timeseries_SPY": {
+      "url": "https://api.twelvedata.com/time_series?symbol=SPY&interval=1min&outputsize=5&apikey=<TWELVEDATA_API_KEY>",
+      "http_status": 200,
+      "headers": {
+        "api-credits-used": "1",
+        "api-credits-left": "7"
+      },
+      "body": {
+        "meta": {
+          "symbol": "SPY",
+          "interval": "1min",
+          "currency": "USD",
+          "exchange_timezone": "America/New_York",
+          "exchange": "NYSE",
+          "mic_code": "ARCX",
+          "type": "ETF"
+        },
+        "values": [
+          {
+            "datetime": "2026-05-14 13:10:00",
+            "open": "747.415",
+            "high": "747.69",
+            "low": "747.22",
+            "close": "747.655",
+            "volume": "13048"
+          },
+          {
+            "datetime": "2026-05-14 13:09:00",
+            "open": "747.6",
+            "high": "747.61",
+            "low": "747.45",
+            "close": "747.46",
+            "volume": "1304"
+          },
+          {
+            "datetime": "2026-05-14 13:08:00",
+            "open": "747.72",
+            "high": "747.73",
+            "low": "747.52",
+            "close": "747.68",
+            "volume": "4078"
+          },
+          {
+            "datetime": "2026-05-14 13:07:00",
+            "open": "747.78",
+            "high": "747.785",
+            "low": "747.58",
+            "close": "747.71",
+            "volume": "2530"
+          },
+          {
+            "datetime": "2026-05-14 13:06:00",
+            "open": "747.88",
+            "high": "747.88",
+            "low": "747.61",
+            "close": "747.86",
+            "volume": "4092"
+          }
+        ],
+        "status": "ok"
+      }
+    }
+  }
+}

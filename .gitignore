@@ -1,0 +1,6 @@
+# Environment files — never commit secrets
+.env
+.env.local
+
+# Phase 0 throwaway venv (Plan 00-02). Phase 1 will replace with `.venv` via `uv sync`.
+.venv-spike/
