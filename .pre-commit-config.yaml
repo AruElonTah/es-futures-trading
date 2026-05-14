@@ -1,0 +1,34 @@
+# Pre-commit hook configuration (FND-04 gitleaks + FND-05 no-naive-tz).
+#
+# Once `uv run pre-commit install` has been run, every `git commit` triggers:
+#   1. gitleaks v8.24.2 — vendor secret-scanner, uses .gitleaks.toml for the
+#      Phase 0 sentinel allowlist (Pitfall 7).
+#   2. no-naive-tz — local AST scanner enforcing UTC discipline (Pitfall 8).
+#
+# Plan 01-05 Task 1.
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+  - repo: local
+    hooks:
+      - id: no-naive-tz
+        name: Forbid datetime.now() / datetime.utcnow() without timezone
+        entry: python scripts/hooks/no_naive_tz.py
+        language: python
+        types: [python]
+        require_serial: true
+        # Plan 01-05 Task 1: the bad-naive-datetime fixture is the
+        # positive-rejection fixture for the integration test. It must
+        # REMAIN rejected by the hook when explicitly fed to it (the test
+        # invokes `python scripts/hooks/no_naive_tz.py <fixture>`), but it
+        # must NOT block the global `pre-commit run --all-files` invariant.
+        # `exclude` is applied by pre-commit BEFORE the hook sees the file
+        # list, so the fixture is invisible to the framework here while the
+        # standalone script still rejects it when called directly.
+        exclude: |
+          (?x)^(
+            packages/trading-core/tests/fixtures/bad_naive_datetime\.py
+          )$

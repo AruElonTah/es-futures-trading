@@ -1,0 +1,36 @@
+# Gitleaks configuration — extends default rules with project allowlists.
+#
+# Why allowlist `<TWELVEDATA_API_KEY>`?
+#   The Phase 0 spike artifacts (`.env.example` and
+#   `.planning/research/spike-0/twelvedata-probe.json`) contain the literal
+#   string `<TWELVEDATA_API_KEY>` as a redaction sentinel. Without this
+#   allowlist gitleaks's generic-api-key heuristic flags the sentinel and
+#   blocks legitimate commits. See 01-RESEARCH.md Pitfall 7.
+#
+# Why allowlist the bad_api_key.py test fixture path?
+#   `packages/trading-core/tests/fixtures/bad_api_key.py` deliberately
+#   contains a synthetic 32-char hex key — it's the positive-rejection
+#   fixture for the gitleaks hook integration test
+#   (test_gitleaks_binary_rejects_bad_api_key). Without this path allowlist,
+#   `gitleaks --no-git --source .` would flag the fixture every time the
+#   working tree is scanned, defeating the "current repo is gitleaks-clean"
+#   invariant. The test that proves the gitleaks RULE still rejects the
+#   fixture invokes gitleaks WITHOUT --config, bypassing this allowlist.
+#
+# Plan 01-05 Task 1.
+
+[[allowlists]]
+description = "Phase 0 redaction sentinel and committed example placeholders"
+regexes = [
+    "<TWELVEDATA_API_KEY>",
+]
+paths = [
+    '''\.env\.example''',
+    '''\.planning/research/spike-0/twelvedata-probe\.json''',
+]
+
+[[allowlists]]
+description = "Plan 01-05 Task 1 — synthetic API-key fixture for hook integration test"
+paths = [
+    '''packages/trading-core/tests/fixtures/bad_api_key\.py''',
+]
