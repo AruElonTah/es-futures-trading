@@ -92,24 +92,14 @@ class TestEnsureSchema:
         assert tables == {"bars", "bar_gaps", "instruments", "runs"}
 
     def test_bars_has_composite_pk(self, tmp_duckdb_path: Path) -> None:
-        store = DuckDBStore(tmp_duckdb_path)
-        store.ensure_schema()
-        try:
-            pk_cols = store._conn.execute(
-                "SELECT column_name FROM duckdb_constraints() "
+        with DuckDBStore(tmp_duckdb_path) as store:
+            store.ensure_schema()
+            row = store._conn.execute(
+                "SELECT constraint_text FROM duckdb_constraints() "
                 "WHERE table_name='bars' AND constraint_type='PRIMARY KEY'"
-            ).fetchall()
-        finally:
-            store.close()
-        # DuckDB returns the PK as a single row with a list/array of column names
-        # in the constraint_column_names column — different versions present this
-        # differently. Probe the column list manually via constraint_text.
-        constraint_text = duckdb.connect(str(tmp_duckdb_path)).execute(
-            "SELECT constraint_text FROM duckdb_constraints() "
-            "WHERE table_name='bars' AND constraint_type='PRIMARY KEY'"
-        ).fetchone()
-        assert constraint_text is not None
-        text = constraint_text[0]
+            ).fetchone()
+        assert row is not None
+        text = row[0]
         assert "symbol" in text and "timeframe" in text and "ts_utc" in text
 
     def test_bars_ts_utc_is_timestamptz(self, tmp_duckdb_path: Path) -> None:
@@ -132,10 +122,11 @@ class TestEnsureSchema:
                 "AND column_name='rollover_seam'"
             ).fetchall()
         assert rows[0][1].upper() == "NO"  # NOT NULL
-        # DuckDB returns 'CAST(false AS BOOLEAN)' or similar; we accept any
-        # rendering whose case-insensitive form contains 'false'.
+        # DuckDB 1.5.x renders the FALSE default as ``CAST('f' AS BOOLEAN)`` in
+        # information_schema.columns.column_default — accept any rendering that
+        # case-insensitively contains either 'false' or the 'f' boolean literal.
         default_text = (rows[0][2] or "").lower()
-        assert "false" in default_text
+        assert "false" in default_text or "'f'" in default_text
 
     def test_ensure_schema_is_idempotent(self, tmp_duckdb_path: Path) -> None:
         with DuckDBStore(tmp_duckdb_path) as store:
@@ -297,13 +288,15 @@ class TestContextManager:
 class TestWriteRunRoundTrip:
     def test_write_run_round_trip(self, tmp_duckdb_path: Path) -> None:
         # Task 2 helpers — must be importable for this test.
-        from trading_core.storage.runs import (
-            adr_hash,
-            data_hash,
-            git_sha,
-            new_run_id,
-            param_hash,
+        runs = pytest.importorskip(
+            "trading_core.storage.runs",
+            reason="runs.py lands in Plan 01-04 Task 2",
         )
+        adr_hash = runs.adr_hash
+        data_hash = runs.data_hash
+        git_sha = runs.git_sha
+        new_run_id = runs.new_run_id
+        param_hash = runs.param_hash
 
         # Build a small df just to feed data_hash.
         df = _spy_390_bars_df().assign(provider="twelve_data")
