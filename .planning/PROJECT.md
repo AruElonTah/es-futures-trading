@@ -4,7 +4,7 @@
 
 A modular Python trading system for E-mini S&P 500 (ES) futures focused on intraday (1m–15m) strategies during the cash session, paired with a Bloomberg-Terminal-style web UI for chart visualization, position tracking, P&L analysis, and strategy control. It runs in **paper / backtest-only** mode — no live capital — but is designed cleanly enough that a real broker adapter could be slotted in later.
 
-Built for a single operator who wants to research, backtest, optimize, and observe intraday ES strategies (starting with Opening Range Breakout) inside one local tool that integrates first-class with their existing TradingView Desktop chart via the TradingView MCP.
+Built for a single operator who wants to research, backtest, optimize, and observe intraday ES strategies (starting with Opening Range Breakout) inside one local tool that uses the **TradingView Desktop chart (via TradingView MCP) as both the live data source and the visualization surface**. Twelve Data and other vendors remain pluggable behind a `DataSource` abstraction for headless backfills and reconciliation, but TV MCP is the v1 primary feed.
 
 ## Core Value
 
@@ -23,10 +23,11 @@ Built for a single operator who wants to research, backtest, optimize, and obser
 <!-- Current scope. Building toward these. -->
 
 **Market Data Ingestion**
-- [ ] Pull historical ES (continuous front-month) 1m / 5m / 15m bars from Twelve Data REST API into local storage
-- [ ] Provider-agnostic `DataSource` interface so Polygon / IB / TradingView (via MCP) can be swapped in later without touching strategy code
-- [ ] Persist bars to DuckDB + Parquet with idempotent upserts and gap detection
-- [ ] RTH-only session filtering (9:30–16:00 ET) with correct DST handling
+- [ ] Pull ES (continuous front-month) 1m / 5m / 15m bars via TradingView MCP `data_get_ohlcv` (primary v1 feed) — handles both live polling and historical replay-window pulls
+- [ ] Provider-agnostic `DataSource` protocol with at least two implementations: `TradingViewDataSource` (primary) and `TwelveDataSource` (secondary / SPY-proxy / reconciliation / headless backfill)
+- [ ] Persist bars to DuckDB + Parquet with idempotent upserts keyed on `(symbol, tf, ts_utc)` and gap detection
+- [ ] RTH-only session filtering (9:30–16:00 ET, CME equity-index calendar, NOT NYSE) with correct DST handling
+- [ ] Daily TradingView ↔ Twelve Data reconciliation pass (when Twelve Data session is provisioned) — flag bars where price differs > 0.05%
 
 **Strategy Engine**
 - [ ] Strategy base class with `on_bar(bar) -> Signal | None` event interface
@@ -65,11 +66,13 @@ Built for a single operator who wants to research, backtest, optimize, and obser
 - [ ] Trade history panel: closed trades table + running equity curve + daily/cumulative stats
 - [ ] Strategy controls panel: toggle strategy on/off, edit ORB params live, kick off backtests, view optimization heatmaps
 
-**TradingView MCP Integration (first-class)**
-- [ ] Bidirectional chart sync: when system focuses a date / symbol, push state to TradingView via MCP
-- [ ] Draw ORB range box, entries, stops, and targets onto the live TV chart via `draw_shape`
-- [ ] Optionally seed backtests from TV replay sessions (`replay_start`, `data_get_ohlcv`) to validate against the same data the user is eyeballing
-- [ ] Create TradingView alerts on active strategy thresholds via `alert_create` as a secondary signal source
+**TradingView MCP Integration (primary data source + visualization surface)**
+- [ ] Long-lived supervised MCP stdio client (`TVBridge`) that owns the connection, auto-restarts on disconnect, and exposes a typed Python wrapper over the relevant tools
+- [ ] `TradingViewDataSource` implementation: live polling via `quote_get` + periodic `data_get_ohlcv` for the active timeframe; historical pulls via `replay_start` / `chart_scroll_to_date` + `data_get_ohlcv`
+- [ ] Bidirectional chart sync: when system focuses a date / symbol, push state to TradingView via MCP (`chart_set_symbol`, `chart_set_timeframe`, `chart_scroll_to_date`)
+- [ ] Draw ORB range box, entries, stops, and targets onto the live TV chart via `draw_shape` — overlay registry + daily cleanup + 200-shape cap
+- [ ] Replay-driven backtests: TV replay session feeds bars through the same `Strategy.on_bar()` path as historical files, so the user can eyeball the strategy on the same data the engine is consuming
+- [ ] Create TradingView alerts on active strategy thresholds via `alert_create` as a secondary user-facing signal surface
 
 ### Out of Scope
 
@@ -86,7 +89,8 @@ Built for a single operator who wants to research, backtest, optimize, and obser
 
 ## Context
 
-- **TradingView MCP runtime is already wired** at `C:\Users\Admin\tradingview-mcp-jackson\` with 78 tools (chart control, Pine, replay, drawings, alerts, data extraction). This is the chart and validation surface — Python is the brain.
+- **TradingView MCP runtime is already wired** at `C:\Users\Admin\tradingview-mcp-jackson\` with 78 tools (chart control, Pine, replay, drawings, alerts, data extraction). In this project TV MCP plays **three roles**: (1) primary market-data source (live + historical via replay), (2) visualization surface (drawings, alerts), (3) eventual reconciliation peer against external vendors (Twelve Data / Databento) once they're slotted in. The Python core remains the brain — TV is the data hose and the screen, not the decision-maker.
+- **Critical research finding (verified 2026-05-14):** Twelve Data does **not** document support for ES futures (only Stocks / Forex / ETFs / Crypto / Commodities / Indices). This is why TradingView MCP is promoted to primary data source for v1. Twelve Data stays in scope as a secondary `DataSource` impl for SPY-proxy backfills, headless CI runs (when TV isn't available), and live cross-vendor reconciliation.
 - **Greenfield repo** at `C:\Users\Admin\Desktop\Day Trading` (just `git init`'d). No prior code, no prior planning artifacts.
 - **Windows 11 / PowerShell** primary dev environment. Bash available, but tooling and scripts should not assume POSIX.
 - **Operator profile**: single user, builds for self, wants Bloomberg-Terminal density (not consumer-friendly bubbles). Comfortable with code-level config, not UI-only tuning.
@@ -97,7 +101,7 @@ Built for a single operator who wants to research, backtest, optimize, and obser
 
 - **Tech stack — Python 3.11+**: required by VectorBT, FastAPI async features, and modern type hints. Lock minimum version in `pyproject.toml`.
 - **Tech stack — VectorBT (free tier acceptable)**: backtest engine. PRO is optional — start free.
-- **Tech stack — Twelve Data primary feed**: REST only, no streaming required at 1m–15m resolution. API key + free/Starter tier sufficient for ES continuous.
+- **Tech stack — TradingView MCP as primary data feed**: live polling + replay-driven historical via `data_get_ohlcv`. Requires TradingView Desktop running and the `tradingview-mcp-jackson` server reachable as a stdio subprocess. Twelve Data REST remains as a secondary `DataSource` for headless / CI / reconciliation use.
 - **Storage — DuckDB + Parquet local files only**: zero-ops, columnar, fast pandas/VBT integration. No Postgres / Timescale until proven necessary.
 - **UI — FastAPI + Next.js (TypeScript) + TradingView Lightweight Charts**: required for true Bloomberg-style density and real-time WebSocket feeds.
 - **Session — RTH (9:30–16:00 ET) only**: data ingestion, backtest windows, and execution gating all enforce this. ETH bars discarded at ingest.
@@ -109,7 +113,7 @@ Built for a single operator who wants to research, backtest, optimize, and obser
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Paper / backtest only for v1 | Validate the research loop and strategy thesis before risking capital or operating a live system | — Pending |
-| Twelve Data as primary feed | Cheaper than Polygon for futures access, abstract behind `DataSource` so we can swap later | — Pending |
+| TradingView MCP as primary data feed (Twelve Data demoted to secondary) | Research surfaced that Twelve Data does not cover ES futures. TV MCP gives real ES data for free, integrates with the chart we already use, and feeds replay-driven backtests against the same bars the user eyeballs. Tradeoff: TV Desktop must be running; headless / CI runs need the secondary Twelve Data (SPY-proxy) path. | — Pending |
 | VectorBT as backtest engine | Vectorized speed for grid + walk-forward, native Plotly, good pandas integration | — Pending |
 | Opening Range Breakout as seed strategy | Well-documented ES intraday edge, simple to parameterize, ideal smoke test for the full pipeline | — Pending |
 | Grid search + walk-forward optimization | Honest baseline; resists overfitting better than naive grid; easy to interpret | — Pending |
