@@ -4,3 +4,27 @@
 
 # Phase 0 throwaway venv (Plan 00-02). Phase 1 will replace with `.venv` via `uv sync`.
 .venv-spike/
+
+# Python virtualenv created by `uv sync`
+.venv/
+__pycache__/
+*.pyc
+
+# Runtime data (DuckDB files + Parquet + audit logs). Allow .gitkeep markers to commit the tree shape.
+data/duckdb/*.duckdb
+data/duckdb/*.duckdb.wal
+data/parquet/
+data/logs/audit/*.jsonl
+data/logs/audit/*.jsonl.*
+!data/**/.gitkeep
+
+# JS workspace
+node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+.pnpm-store/
+
+# Editors / OS noise
+.DS_Store
+Thumbs.db
