@@ -1,0 +1,51 @@
+2026-05-14T17:32:16.857084+00:00 | phase=0 spike=tv_mcp_smoke server=C:\Users\Admin\tradingview-mcp-jackson\src\server.js
+2026-05-14T17:32:16.857084+00:00 | python=3.12.9 cwd=C:\Users\Admin\Desktop\Day Trading
+2026-05-14T17:32:17.281804+00:00 | tool_count=81 all_required_present=True
+2026-05-14T17:32:17.281804+00:00 | call_attempt tool=chart_get_state args={}
+2026-05-14T17:32:17.385636+00:00 | tool=chart_get_state args={} success=True keys=['success', 'symbol', 'resolution', 'chartType', 'studies']
+2026-05-14T17:32:17.385636+00:00 |   detail tool=chart_get_state symbol=CME_MINI:ESM2026 resolution=3 chartType=1
+2026-05-14T17:32:17.385636+00:00 | initial_symbol=CME_MINI:ESM2026 initial_timeframe=3
+2026-05-14T17:32:17.385636+00:00 | call_attempt tool=tv_health_check args={}
+2026-05-14T17:32:17.385636+00:00 | tool=tv_health_check args={} success=True keys=['success', 'cdp_connected', 'target_id', 'target_url', 'target_title', 'chart_symbol']
+2026-05-14T17:32:17.385636+00:00 |   detail tool=tv_health_check cdp_connected=True target_id=BF8B5DE94BFCA679B124015F3C93CE65 target_url=https://www.tradingview.com/chart/e8VBhmR0/
+2026-05-14T17:32:17.385636+00:00 | call_attempt tool=chart_set_symbol args={'symbol': 'CME_MINI:ES1!'}
+2026-05-14T17:32:28.038676+00:00 | tool=chart_set_symbol args={'symbol': 'CME_MINI:ES1!'} success=True keys=['success', 'symbol', 'chart_ready']
+2026-05-14T17:32:28.038676+00:00 |   detail tool=chart_set_symbol symbol=CME_MINI:ES1! chart_ready=False
+2026-05-14T17:32:28.038676+00:00 | call_attempt tool=chart_set_timeframe args={'timeframe': '1'}
+2026-05-14T17:32:29.540006+00:00 | tool=chart_set_timeframe args={'timeframe': '1'} success=True keys=['success', 'timeframe', 'chart_ready']
+2026-05-14T17:32:29.540006+00:00 |   detail tool=chart_set_timeframe timeframe=1 chart_ready=True
+2026-05-14T17:32:29.540006+00:00 | call_attempt tool=chart_scroll_to_date args={'date': '2026-05-13T20:00:00+00:00'}
+2026-05-14T17:32:30.055568+00:00 | tool=chart_scroll_to_date args={'date': '2026-05-13T20:00:00+00:00'} success=True keys=['success', 'date', 'centered_on', 'resolution', 'window']
+2026-05-14T17:32:30.055568+00:00 |   detail tool=chart_scroll_to_date date=2026-05-13T20:00:00+00:00 centered_on=1778702400 resolution=1
+2026-05-14T17:32:31.566474+00:00 | call_attempt tool=data_get_ohlcv args={'count': 390, 'summary': False}
+2026-05-14T17:32:31.569953+00:00 | tool=data_get_ohlcv args={'count': 390, 'summary': False} success=True keys=['success', 'bar_count', 'total_available', 'source', 'bars']
+2026-05-14T17:32:31.569953+00:00 |   detail tool=data_get_ohlcv bar_count=300 total_available=300 source=direct_bars first_bar_time=1778761980 last_bar_time=1778779920
+2026-05-14T17:32:31.569953+00:00 | bar_count=300
+2026-05-14T17:32:31.569953+00:00 |   bar[0] time=1778761980 open=7493.75 high=7495.5 low=7493.5 close=7495.25 volume=494
+2026-05-14T17:32:31.569953+00:00 |   bar[1] time=1778762040 open=7495.5 high=7496 low=7495 close=7496 volume=270
+2026-05-14T17:32:31.569953+00:00 |   bar[2] time=1778762100 open=7495.75 high=7496.25 low=7495 close=7495.25 volume=192
+2026-05-14T17:32:31.569953+00:00 |   bar[3] time=1778762160 open=7495.25 high=7495.25 low=7493 close=7493 volume=543
+2026-05-14T17:32:31.569953+00:00 |   bar[4] time=1778762220 open=7493 high=7493.75 low=7492.5 close=7493 volume=445
+2026-05-14T17:32:31.569953+00:00 |   ... (290 bars elided) ...
+2026-05-14T17:32:31.569953+00:00 |   bar[295] time=1778779680 open=7510.75 high=7511.5 low=7509.5 close=7511 volume=2443
+2026-05-14T17:32:31.569953+00:00 |   bar[296] time=1778779740 open=7511 high=7514 low=7510.25 close=7513.5 volume=2564
+2026-05-14T17:32:31.569953+00:00 |   bar[297] time=1778779800 open=7513.5 high=7516.25 low=7511 close=7516 volume=3365
+2026-05-14T17:32:31.569953+00:00 |   bar[298] time=1778779860 open=7515.75 high=7517.75 low=7515.75 close=7516.5 volume=3000
+2026-05-14T17:32:31.569953+00:00 |   bar[299] time=1778779920 open=7516.5 high=7517.75 low=7516 close=7516.5 volume=1277
+2026-05-14T17:32:31.569953+00:00 | call_attempt tool=quote_get args={'symbol': 'CME_MINI:ES1!'}
+2026-05-14T17:32:31.575243+00:00 | tool=quote_get args={'symbol': 'CME_MINI:ES1!'} success=True keys=['success', 'symbol', 'time', 'open', 'high', 'low']
+2026-05-14T17:32:31.575243+00:00 |   detail tool=quote_get symbol=CME_MINI:ES1! time=1778779920 open=7516.5 high=7517.75 low=7516 close=7516.5 last=7516.5 volume=1277
+2026-05-14T17:32:31.575243+00:00 | quote_staleness_seconds=31.6
+2026-05-14T17:32:31.575243+00:00 | WARNING quote_staleness_seconds=31.6 > 5.0 during RTH — verify TV CME real-time subscription
+2026-05-14T17:32:31.575243+00:00 | ----- end of happy path -----
+2026-05-14T17:32:31.575243+00:00 | summary calls_made=7 tool_count_observed=81 all_required_present=True
+2026-05-14T17:32:31.575243+00:00 | summary symbol_under_test=CME_MINI:ES1! timeframe=1 ohlcv_bars=300
+2026-05-14T17:32:31.575243+00:00 | summary initial_symbol=CME_MINI:ESM2026 initial_timeframe=3
+2026-05-14T17:32:31.575243+00:00 | summary key_tools_present=['tv_health_check', 'chart_get_state', 'chart_set_symbol', 'chart_set_timeframe', 'chart_scroll_to_date', 'data_get_ohlcv', 'quote_get', 'draw_shape', 'alert_create', 'replay_start', 'pine_smart_compile', 'symbol_search', 'watchlist_get']
+2026-05-14T17:32:34.100699+00:00 | call_attempt tool=chart_set_symbol args={'symbol': 'CME_MINI:ESM2026'}
+2026-05-14T17:32:44.908094+00:00 | tool=chart_set_symbol args={'symbol': 'CME_MINI:ESM2026'} success=True keys=['success', 'symbol', 'chart_ready']
+2026-05-14T17:32:44.908094+00:00 |   detail tool=chart_set_symbol symbol=CME_MINI:ESM2026 chart_ready=False
+2026-05-14T17:32:44.908094+00:00 | call_attempt tool=chart_set_timeframe args={'timeframe': '3'}
+2026-05-14T17:32:46.431876+00:00 | tool=chart_set_timeframe args={'timeframe': '3'} success=True keys=['success', 'timeframe', 'chart_ready']
+2026-05-14T17:32:46.436553+00:00 |   detail tool=chart_set_timeframe timeframe=3 chart_ready=True
+2026-05-14T17:32:46.436553+00:00 | restored chart to CME_MINI:ESM2026/3

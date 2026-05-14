@@ -1,0 +1,4 @@
+# mcp SDK 1.x stdio_client does not expose subprocess stderr.
+# If diagnostics are needed, launch the server manually via
+#   node C:\Users\Admin\tradingview-mcp-jackson\src\server.js
+# in a separate PowerShell window and observe its stderr stream.

@@ -1,0 +1,30 @@
+2026-05-14T17:44:13.298765+00:00 | phase=0 spike=tv_mcp_restart server=C:\Users\Admin\tradingview-mcp-jackson\src\server.js
+2026-05-14T17:44:13.298765+00:00 | python=3.12.9 cwd=C:\Users\Admin\Desktop\Day Trading
+2026-05-14T17:44:13.298765+00:00 | config max_cycles=30 cycle_interval=10.0s
+2026-05-14T17:44:13.298765+00:00 | config pre_ok_required=3 post_ok_required=3
+2026-05-14T17:44:13.298765+00:00 | config per_call_timeout=12.0s
+2026-05-14T17:44:13.784859+00:00 | session initialized; entering cycle loop
+2026-05-14T17:44:13.897263+00:00 | cycle=1/30 phase=PRE_RESTART health=OK quote=OK
+2026-05-14T17:44:23.916344+00:00 | cycle=2/30 phase=PRE_RESTART health=OK quote=OK
+2026-05-14T17:44:33.924805+00:00 | cycle=3/30 phase=PRE_RESTART health=OK quote=OK
+2026-05-14T17:44:33.924805+00:00 | pre-restart OK count reached 3
+2026-05-14T17:44:33.924805+00:00 | ===== BEFORE_RESTART_MARKER =====
+2026-05-14T17:44:43.931637+00:00 | cycle=4/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:44:53.944093+00:00 | cycle=5/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:45:03.967397+00:00 | cycle=6/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:45:13.986289+00:00 | cycle=7/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:45:24.002089+00:00 | cycle=8/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:45:34.033599+00:00 | cycle=9/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:45:44.068052+00:00 | cycle=10/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:45:54.077433+00:00 | cycle=11/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:46:04.098695+00:00 | cycle=12/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:46:38.122567+00:00 | cycle=13/30 phase=WAITING_FOR_RESTART health=FAIL:tool call timed out quote=FAIL:tool call timed out
+2026-05-14T17:47:07.727290+00:00 | cycle=14/30 phase=WAITING_FOR_RESTART health=FAIL:tool call timed out quote=FAIL:JS evaluation error: TypeError: Cannot read properties of undefined (reading '_a
+2026-05-14T17:47:17.809856+00:00 | cycle=15/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:47:27.835098+00:00 | cycle=16/30 phase=WAITING_FOR_RESTART health=OK quote=OK
+2026-05-14T17:47:27.835098+00:00 | ===== AFTER_RESTART_MARKER =====
+2026-05-14T17:47:37.853390+00:00 | cycle=17/30 phase=POST_RESTART health=OK quote=OK
+2026-05-14T17:47:47.861912+00:00 | cycle=18/30 phase=POST_RESTART health=OK quote=OK
+2026-05-14T17:47:47.861912+00:00 | post-restart OK count reached 3; conclusive
+2026-05-14T17:47:49.876273+00:00 | summary cycles_pre_ok=3 cycles_post_ok=3 observed_failure_during_restart=True has_tty=False
+2026-05-14T17:47:49.887195+00:00 | RESULT: conclusive
