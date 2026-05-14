@@ -80,7 +80,7 @@ Plans:
 - [x] 01-01-PLAN.md — Workspace scaffold + uv/pnpm install + Next.js stub (Wave 1)
 - [x] 01-02-PLAN.md — Domain models + 4 Protocols + Settings + structlog (Wave 2)
 - [x] 01-03-PLAN.md — Calendars (RTH/rollover/gap) + EventBus + DST fixtures (Wave 2)
-- [ ] 01-04-PLAN.md — Storage (DuckDB + Parquet + runs) + Twelve Data + TradingView adapters (Wave 2)
+- [x] 01-04-PLAN.md — Storage (DuckDB + Parquet + runs) + Twelve Data + TradingView adapters (Wave 2)
 - [ ] 01-05-PLAN.md — seed_bars.py CLI + pre-commit hooks (no-naive-tz + gitleaks) (Wave 3)
 - [ ] 01-06-PLAN.md — FastAPI shell + apps/web finalize + Phase 1 acceptance smoke (Wave 4)
 

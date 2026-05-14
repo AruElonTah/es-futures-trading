@@ -16,16 +16,16 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 - [ ] **FND-05**: Repo-wide UTC discipline: every timestamp stored as tz-aware UTC; pre-commit lint forbids `datetime.now()` and `datetime.utcnow()` without explicit timezone
 - [x] **FND-06**: `instruments.py` single-source-of-truth registry exposes `tick_value`, `point_value`, `tick_size`, `session_open_et`, `session_close_et` for ES, MES, SPY (proxy); every dollar-denominated calc reads from it (no magic numbers)
 - [x] **FND-07**: `EventBus` (in-process asyncio pub/sub) with typed topics: `bars`, `signals`, `risk_decisions`, `fills`, `positions`, `equity`; deterministic event ordering enforced
-- [ ] **FND-08**: Every run logs `git_sha / data_hash / param_hash / seed` to a `runs` table; reproducibility CI test asserts same input → bitwise-identical equity curve
+- [x] **FND-08**: Every run logs `git_sha / data_hash / param_hash / seed` to a `runs` table; reproducibility CI test asserts same input → bitwise-identical equity curve
 - [x] **FND-09**: `structlog` JSON logging with correlation IDs threaded through every async boundary
 - [ ] **FND-10**: Provider-validation ADR committed to `.planning/decisions/` documenting (a) Twelve Data's ES coverage as of the ADR date, (b) the chosen v1 primary feed (TradingView MCP) and rationale, (c) the eventual futures-aware swap candidate (Databento / Polygon Futures / IB)
 
 ### Market Data Ingestion (MD)
 
 - [x] **MD-01**: `DataSource` protocol defines `fetch_bars(symbol, tf, start, end) -> DataFrame[Bar]` and `subscribe_bars(symbol, tf) -> AsyncIterator[Bar]`; all readers code against the protocol, never an implementation
-- [ ] **MD-02**: `TradingViewDataSource` implementation pulls bars via TradingView MCP `data_get_ohlcv` (live polling + replay-driven historical); reconnects transparently when TV restarts
-- [ ] **MD-03**: `TwelveDataSource` implementation (secondary) pulls 1m / 5m / 15m bars from Twelve Data REST for SPY (and any other Twelve-Data-supported proxy); used for headless CI runs and cross-vendor reconciliation
-- [ ] **MD-04**: Bars persisted to DuckDB + Hive-partitioned Parquet (`symbol=/year=/month=`) with idempotent upsert keyed on `(symbol, tf, ts_utc)`; single-writer convention enforced (FastAPI process holds the only writer connection)
+- [x] **MD-02**: `TradingViewDataSource` implementation pulls bars via TradingView MCP `data_get_ohlcv` (live polling + replay-driven historical); reconnects transparently when TV restarts
+- [x] **MD-03**: `TwelveDataSource` implementation (secondary) pulls 1m / 5m / 15m bars from Twelve Data REST for SPY (and any other Twelve-Data-supported proxy); used for headless CI runs and cross-vendor reconciliation
+- [x] **MD-04**: Bars persisted to DuckDB + Hive-partitioned Parquet (`symbol=/year=/month=`) with idempotent upsert keyed on `(symbol, tf, ts_utc)`; single-writer convention enforced (FastAPI process holds the only writer connection)
 - [x] **MD-05**: RTH session filter applies the **CME equity-index calendar** (`pandas_market_calendars` `CME_Equity`, NOT NYSE) including half-days and exchange holidays
 - [x] **MD-06**: Bar timestamps documented as **open-time** (matching TradingView and Twelve Data convention); helper functions enforce next-bar reference everywhere downstream
 - [x] **MD-07**: Bar-gap detector flags missing bars within RTH and writes them to a `bar_gaps` table; UI surfaces gaps before any backtest is run on the affected window
@@ -188,13 +188,13 @@ Populated 2026-05-14 during roadmap creation. Every v1 REQ-ID maps to exactly on
 | FND-05 | Phase 1 | Pending |
 | FND-06 | Phase 1 | Complete |
 | FND-07 | Phase 1 | Complete |
-| FND-08 | Phase 1 | Pending |
+| FND-08 | Phase 1 | Complete |
 | FND-09 | Phase 1 | Complete |
 | FND-10 | Phase 0 | Done |
 | MD-01 | Phase 1 | Complete |
-| MD-02 | Phase 1 | Pending |
-| MD-03 | Phase 1 | Pending |
-| MD-04 | Phase 1 | Pending |
+| MD-02 | Phase 1 | Complete |
+| MD-03 | Phase 1 | Complete |
+| MD-04 | Phase 1 | Complete |
 | MD-05 | Phase 1 | Complete |
 | MD-06 | Phase 1 | Complete |
 | MD-07 | Phase 1 | Complete |
