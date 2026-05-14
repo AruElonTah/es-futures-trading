@@ -3,8 +3,8 @@
 Behavior tested:
 - ``ensure_schema()`` creates bars/bar_gaps/instruments/runs with composite PK
   ``(symbol, timeframe, ts_utc)`` on ``bars``.
-- ``upsert_bars(df, provider=...)`` is idempotent (Pitfall 2 — uses ON CONFLICT
-  ... DO UPDATE SET, NOT INSERT OR REPLACE).
+- ``upsert_bars(df, provider=...)`` is idempotent (Pitfall 2 — uses
+  ON CONFLICT ... DO UPDATE SET, NOT the 3-word upsert shortcut form).
 - ``upsert_bars`` updates a row when ``close`` changes (Plan §<behavior> bullet 3).
 - ``upsert_gaps(...)`` is idempotent on re-run with same input.
 - ``write_parquet_partition`` writes Hive-partitioned files (symbol=/year=/month=).

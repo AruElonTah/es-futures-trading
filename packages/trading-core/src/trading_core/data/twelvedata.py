@@ -101,7 +101,14 @@ class TwelveDataSource:
         """
         if start.tzinfo is None or end.tzinfo is None:
             raise ValueError("start and end must be tz-aware UTC datetimes")
-        if start.utcoffset() != end.utcoffset() or start.utcoffset().total_seconds() != 0:
+        start_offset = start.utcoffset()
+        end_offset = end.utcoffset()
+        if (
+            start_offset is None
+            or end_offset is None
+            or start_offset.total_seconds() != 0
+            or end_offset.total_seconds() != 0
+        ):
             raise ValueError("start and end must be UTC (offset 0)")
         if timeframe not in _TF_TO_INTERVAL:
             raise ValueError(
@@ -246,4 +253,5 @@ class TwelveDataSource:
         # The unreachable yield below makes this function an async-generator
         # per the Protocol's AsyncIterator[Bar] return — mypy/Pyright
         # otherwise infer this as ``Coroutine[..., AsyncIterator[Bar]]``.
-        yield  # type: ignore[unreachable]
+        if False:
+            yield  # pragma: no cover

@@ -85,19 +85,6 @@ def _patch_mcp(
         "bars": [],
     }
 
-    async def call_tool(name: str, args: dict) -> MagicMock:
-        if tool_call_recorder is not None:
-            tool_call_recorder.append((name, args))
-        if name == "tv_health_check":
-            return _make_tool_result(health)
-        if name == "data_get_ohlcv":
-            return _make_tool_result(ohlcv)
-        return _make_tool_result({"success": False, "error": f"unknown tool {name}"})
-
-    async def initialize() -> None:
-        if initialize_raises is not None:
-            raise initialize_raises()
-
     class FakeSession:
         async def __aenter__(self):
             return self
@@ -105,8 +92,18 @@ def _patch_mcp(
         async def __aexit__(self, *args):
             return None
 
-        initialize = staticmethod(initialize)
-        call_tool = staticmethod(call_tool)
+        async def initialize(self):
+            if initialize_raises is not None:
+                raise initialize_raises()
+
+        async def call_tool(self, name: str, args: dict):
+            if tool_call_recorder is not None:
+                tool_call_recorder.append((name, args))
+            if name == "tv_health_check":
+                return _make_tool_result(health)
+            if name == "data_get_ohlcv":
+                return _make_tool_result(ohlcv)
+            return _make_tool_result({"success": False, "error": f"unknown tool {name}"})
 
     def fake_client_session_ctor(read, write):
         return FakeSession()
