@@ -7,11 +7,23 @@ re-export mechanism still works under pytest's --import-mode=importlib because
 conftest discovery is file-path-based, not Python-package-based; see Plan 01-01
 SUMMARY.md "Deviations" #1).
 
-Plan 03 will own the DST + rollover fixtures. Plan 01-02 only registers the
-three Instrument fixtures.
+Plan 03 owns the DST + half-day + rollover fixtures and prepends the tests/
+directory to sys.path so test modules can `from fixtures.dst_bars import ...`
+under --import-mode=importlib (no tests/__init__.py per Plan 01-01).
 """
 
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+# Make `fixtures/` importable from any test module under --import-mode=importlib.
+# Plan 01-01 decision: no tests/__init__.py to avoid the cross-package conftest
+# plugin-registration collision. Consequence: pytest does NOT add the tests/
+# dir to sys.path. We do it here once, at conftest load time.
+_TESTS_DIR = Path(__file__).resolve().parent
+if str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
 
 import pytest
 
@@ -34,3 +46,40 @@ def mes_instrument() -> Instrument:
 def spy_instrument() -> Instrument:
     """The SPY (SPDR S&P 500 ETF) Instrument from the SoT registry."""
     return get("SPY")
+
+
+# ---------------------------------------------------------------------------
+# Plan 01-03 — DST + half-day + synthetic-day fixtures (Pattern 3 evidence)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def dst_spring_forward_2026_03_09():
+    """390-row 1m DataFrame for Mon 2026-03-09 (first trading day after DST starts)."""
+    from fixtures.dst_bars import make_dst_spring_forward_2026_03_09_bars
+
+    return make_dst_spring_forward_2026_03_09_bars()
+
+
+@pytest.fixture
+def dst_fall_back_2026_11_02():
+    """390-row 1m DataFrame for Mon 2026-11-02 (first trading day after DST ends)."""
+    from fixtures.dst_bars import make_dst_fall_back_2026_11_02_bars
+
+    return make_dst_fall_back_2026_11_02_bars()
+
+
+@pytest.fixture
+def cme_half_day_thanksgiving_2024_11_29():
+    """210-row 1m DataFrame for Black Friday 2024 (early close at 13:00 ET)."""
+    from fixtures.dst_bars import make_cme_half_day_2024_11_29_bars
+
+    return make_cme_half_day_2024_11_29_bars()
+
+
+@pytest.fixture
+def synthetic_spy_day():
+    """Factory that yields `make_synthetic_spy_day_bars(date)` — for parametric tests."""
+    from fixtures.dst_bars import make_synthetic_spy_day_bars
+
+    return make_synthetic_spy_day_bars
