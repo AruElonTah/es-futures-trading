@@ -171,77 +171,106 @@ def _run_seed_bars_in_process(
     """Invoke `seed_bars.main(args)` in-process with respx-mocked HTTP.
 
     Subprocess invocation cannot register respx in the child, so we exercise
-    the same async pipeline in-process. Patches the Settings env keys via
-    monkeypatch-style os.environ writes BEFORE importing seed_bars.
+    the same async pipeline in-process. Env writes are scoped to this call —
+    pre-existing values are restored on exit so the wider test suite is not
+    polluted (FAKEKEY12345 etc. must not leak into test_config or
+    test_twelvedata_source).
 
     Returns:
         (exit_code, captured_stdout_or_stderr_text).
     """
+    import asyncio
     import importlib
     import io
-    import respx
-    import httpx
-    import asyncio
     from contextlib import redirect_stderr, redirect_stdout
 
-    # Set the env so Settings() picks up the test paths.
+    import httpx
+    import respx
+
+    # Capture pre-existing env values so we can restore them on exit. This
+    # is what monkeypatch.setenv does, but we can't pass monkeypatch through
+    # a helper — so we DIY scoped writes via try/finally.
+    env_keys = (
+        "TWELVEDATA_API_KEY",
+        "DUCKDB_PATH",
+        "PARQUET_ROOT",
+        "AUDIT_LOG_DIR",
+        "DEFAULT_PROVIDER",
+    )
+    prev_env: dict[str, str | None] = {
+        k: os.environ.get(k) for k in env_keys
+    }
+
     os.environ["TWELVEDATA_API_KEY"] = api_key
     os.environ["DUCKDB_PATH"] = str(duckdb_path)
     os.environ["PARQUET_ROOT"] = str(parquet_root)
     os.environ["AUDIT_LOG_DIR"] = str(audit_log_dir)
     os.environ["DEFAULT_PROVIDER"] = "twelvedata"
 
-    # Re-import seed_bars to pick up fresh Settings.
-    if str(_SEED_SCRIPT.parent) not in sys.path:
-        sys.path.insert(0, str(_SEED_SCRIPT.parent))
-    import seed_bars as seed_bars_module  # type: ignore[import-not-found]
+    try:
+        # Re-import seed_bars to pick up fresh Settings. The module imports
+        # Settings at module scope, but Settings() is constructed inside
+        # main() — so a stale module reference is fine.
+        if str(_SEED_SCRIPT.parent) not in sys.path:
+            sys.path.insert(0, str(_SEED_SCRIPT.parent))
+        import seed_bars as seed_bars_module  # type: ignore[import-not-found]
 
-    importlib.reload(seed_bars_module)
+        importlib.reload(seed_bars_module)
 
-    args = type("Args", (), {})()
-    defaults = {
-        "symbol": "SPY",
-        "tf": "1m",
-        "frm": datetime(2024, 1, 2, 0, 0, tzinfo=timezone.utc),
-        "to": datetime(2024, 1, 3, 0, 0, tzinfo=timezone.utc),
-        "provider": "twelvedata",
-        "seed": 42,
-        "duckdb_path": duckdb_path,
-    }
-    if args_dict:
-        defaults.update(args_dict)
-    for k, v in defaults.items():
-        setattr(args, k, v)
+        args = type("Args", (), {})()
+        defaults = {
+            "symbol": "SPY",
+            "tf": "1m",
+            "frm": datetime(2024, 1, 2, 0, 0, tzinfo=timezone.utc),
+            "to": datetime(2024, 1, 3, 0, 0, tzinfo=timezone.utc),
+            "provider": "twelvedata",
+            "seed": 42,
+            "duckdb_path": duckdb_path,
+        }
+        if args_dict:
+            defaults.update(args_dict)
+        for k, v in defaults.items():
+            setattr(args, k, v)
 
-    out_buf = io.StringIO()
-    err_buf = io.StringIO()
+        out_buf = io.StringIO()
+        err_buf = io.StringIO()
 
-    async def runner() -> int:
-        with respx.mock(assert_all_called=False) as router:
-            route = router.get(
-                url__startswith="https://api.twelvedata.com/time_series"
-            )
-            if mock_status_code == 429:
-                route.return_value = httpx.Response(
-                    429,
-                    json={"code": 429, "message": "ratelimited"},
-                    headers={"api-credits-left": "0", "api-credits-used": "8"},
+        async def runner() -> int:
+            with respx.mock(assert_all_called=False) as router:
+                route = router.get(
+                    url__startswith="https://api.twelvedata.com/time_series"
                 )
+                if mock_status_code == 429:
+                    route.return_value = httpx.Response(
+                        429,
+                        json={"code": 429, "message": "ratelimited"},
+                        headers={
+                            "api-credits-left": "0",
+                            "api-credits-used": "8",
+                        },
+                    )
+                else:
+                    route.return_value = httpx.Response(
+                        mock_status_code,
+                        json=mock_payload or _build_390_bar_payload(),
+                        headers={
+                            "api-credits-left": "7",
+                            "api-credits-used": "1",
+                        },
+                    )
+                return await seed_bars_module.main(args)
+
+        with redirect_stdout(out_buf), redirect_stderr(err_buf):
+            rc = asyncio.run(runner())
+
+        return rc, out_buf.getvalue() + err_buf.getvalue()
+    finally:
+        # Restore pre-existing env (or delete if it wasn't set before).
+        for k, original in prev_env.items():
+            if original is None:
+                os.environ.pop(k, None)
             else:
-                route.return_value = httpx.Response(
-                    mock_status_code,
-                    json=mock_payload or _build_390_bar_payload(),
-                    headers={
-                        "api-credits-left": "7",
-                        "api-credits-used": "1",
-                    },
-                )
-            return await seed_bars_module.main(args)
-
-    with redirect_stdout(out_buf), redirect_stderr(err_buf):
-        rc = asyncio.run(runner())
-
-    return rc, out_buf.getvalue() + err_buf.getvalue()
+                os.environ[k] = original
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +291,68 @@ def _no_pacing(monkeypatch: pytest.MonkeyPatch) -> None:
         return await real_sleep(delay, *args, **kwargs)
 
     monkeypatch.setattr(_asyncio, "sleep", fast_sleep)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_logging(monkeypatch: pytest.MonkeyPatch):
+    """Stub `setup_logging` to skip the global structlog/stdlib mutation.
+
+    `seed_bars.main()` calls `setup_logging(audit_log_dir)` which configures
+    structlog with `cache_logger_on_first_use=True` AND adds a
+    ConcurrentRotatingFileHandler to the root logger. The cache flag causes
+    `_log = structlog.get_logger(__name__)` references already evaluated in
+    trading_core modules (e.g. data/twelvedata.py line 57) to PERMANENTLY
+    cache a BoundLogger pointing at the post-setup pipeline. After cache,
+    `structlog.testing.capture_logs()` cannot intercept anymore — breaking
+    test_twelvedata_source / test_tradingview_source captures in any later
+    test in the same pytest run.
+
+    The Pitfall-5 UTF-8 stdout reconfigure runs at seed_bars.py script-entry
+    time (above all imports), so skipping setup_logging in-process does
+    NOT regress that defense. Subprocess invocations (test_help_exits_zero)
+    still hit the real setup_logging because they go through __main__.
+
+    Plan 01-05 Task 2 deviation: test-isolation safety net (Rule 3 -
+    Blocker).
+    """
+    import logging
+
+    import structlog
+
+    # Snapshot for restoration.
+    if structlog.is_configured():
+        prev_config = structlog.get_config()
+    else:
+        prev_config = None
+    root = logging.getLogger()
+    prev_handlers = list(root.handlers)
+    prev_level = root.level
+
+    # Replace setup_logging with a tiny no-op stub that creates the audit
+    # dir (the test asserts files / dirs exist below tmp_path in some cases)
+    # but does NOT touch structlog config.
+    def _noop_setup_logging(audit_dir):  # noqa: ANN001
+        audit_dir.mkdir(parents=True, exist_ok=True)
+
+    # Patch in the seed_bars module's namespace — the script does
+    # `from trading_core.logging import setup_logging, get_logger`, so the
+    # imported name lives in seed_bars's globals. We reload seed_bars per
+    # test (helper does importlib.reload) so the patch must apply BEFORE
+    # the reload — we set it on the source module too.
+    monkeypatch.setattr(
+        "trading_core.logging.setup_logging", _noop_setup_logging, raising=True
+    )
+
+    try:
+        yield
+    finally:
+        # Restore root-logger state in case our no-op was bypassed.
+        root.handlers = prev_handlers
+        root.setLevel(prev_level)
+        if prev_config is None:
+            structlog.reset_defaults()
+        else:
+            structlog.configure(**prev_config)
 
 
 # ---------------------------------------------------------------------------
