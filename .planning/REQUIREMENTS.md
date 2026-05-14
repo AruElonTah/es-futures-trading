@@ -177,90 +177,90 @@ Explicitly excluded. Documented to prevent scope creep and to surface anti-featu
 
 ## Traceability
 
-Populated during roadmap creation. Empty initially.
+Populated 2026-05-14 during roadmap creation. Every v1 REQ-ID maps to exactly one phase.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 | TBD | Pending |
-| FND-02 | TBD | Pending |
-| FND-03 | TBD | Pending |
-| FND-04 | TBD | Pending |
-| FND-05 | TBD | Pending |
-| FND-06 | TBD | Pending |
-| FND-07 | TBD | Pending |
-| FND-08 | TBD | Pending |
-| FND-09 | TBD | Pending |
-| FND-10 | TBD | Pending |
-| MD-01 | TBD | Pending |
-| MD-02 | TBD | Pending |
-| MD-03 | TBD | Pending |
-| MD-04 | TBD | Pending |
-| MD-05 | TBD | Pending |
-| MD-06 | TBD | Pending |
-| MD-07 | TBD | Pending |
-| MD-08 | TBD | Pending |
-| MD-09 | TBD | Pending |
-| MD-10 | TBD | Pending |
-| STR-01 | TBD | Pending |
-| STR-02 | TBD | Pending |
-| STR-03 | TBD | Pending |
-| STR-04 | TBD | Pending |
-| STR-05 | TBD | Pending |
-| STR-06 | TBD | Pending |
-| BT-01 | TBD | Pending |
-| BT-02 | TBD | Pending |
-| BT-03 | TBD | Pending |
-| BT-04 | TBD | Pending |
-| BT-05 | TBD | Pending |
-| BT-06 | TBD | Pending |
-| BT-07 | TBD | Pending |
-| BT-08 | TBD | Pending |
-| BT-09 | TBD | Pending |
-| OPT-01 | TBD | Pending |
-| OPT-02 | TBD | Pending |
-| OPT-03 | TBD | Pending |
-| OPT-04 | TBD | Pending |
-| OPT-05 | TBD | Pending |
-| OPT-06 | TBD | Pending |
-| OPT-07 | TBD | Pending |
-| OPT-08 | TBD | Pending |
-| OPT-09 | TBD | Pending |
-| SP-01 | TBD | Pending |
-| SP-02 | TBD | Pending |
-| SP-03 | TBD | Pending |
-| SP-04 | TBD | Pending |
-| SP-05 | TBD | Pending |
-| SP-06 | TBD | Pending |
-| RM-01 | TBD | Pending |
-| RM-02 | TBD | Pending |
-| RM-03 | TBD | Pending |
-| RM-04 | TBD | Pending |
-| RM-05 | TBD | Pending |
-| RM-06 | TBD | Pending |
-| RM-07 | TBD | Pending |
-| RM-08 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
-| UI-05 | TBD | Pending |
-| UI-06 | TBD | Pending |
-| UI-07 | TBD | Pending |
-| UI-08 | TBD | Pending |
-| UI-09 | TBD | Pending |
-| TV-01 | TBD | Pending |
-| TV-02 | TBD | Pending |
-| TV-03 | TBD | Pending |
-| TV-04 | TBD | Pending |
-| TV-05 | TBD | Pending |
-| TV-06 | TBD | Pending |
-| TV-07 | TBD | Pending |
+| FND-01 | Phase 1 | Pending |
+| FND-02 | Phase 1 | Pending |
+| FND-03 | Phase 1 | Pending |
+| FND-04 | Phase 1 | Pending |
+| FND-05 | Phase 1 | Pending |
+| FND-06 | Phase 1 | Pending |
+| FND-07 | Phase 1 | Pending |
+| FND-08 | Phase 1 | Pending |
+| FND-09 | Phase 1 | Pending |
+| FND-10 | Phase 0 | Pending |
+| MD-01 | Phase 1 | Pending |
+| MD-02 | Phase 1 | Pending |
+| MD-03 | Phase 1 | Pending |
+| MD-04 | Phase 1 | Pending |
+| MD-05 | Phase 1 | Pending |
+| MD-06 | Phase 1 | Pending |
+| MD-07 | Phase 1 | Pending |
+| MD-08 | Phase 1 | Pending |
+| MD-09 | Phase 1 | Pending |
+| MD-10 | Phase 6 | Pending |
+| STR-01 | Phase 2 | Pending |
+| STR-02 | Phase 2 | Pending |
+| STR-03 | Phase 2 | Pending |
+| STR-04 | Phase 2 | Pending |
+| STR-05 | Phase 2 | Pending |
+| STR-06 | Phase 2 | Pending |
+| BT-01 | Phase 3 | Pending |
+| BT-02 | Phase 3 | Pending |
+| BT-03 | Phase 3 | Pending |
+| BT-04 | Phase 3 | Pending |
+| BT-05 | Phase 3 | Pending |
+| BT-06 | Phase 3 | Pending |
+| BT-07 | Phase 3 | Pending |
+| BT-08 | Phase 3 | Pending |
+| BT-09 | Phase 3 | Pending |
+| OPT-01 | Phase 4 | Pending |
+| OPT-02 | Phase 4 | Pending |
+| OPT-03 | Phase 4 | Pending |
+| OPT-04 | Phase 4 | Pending |
+| OPT-05 | Phase 4 | Pending |
+| OPT-06 | Phase 4 | Pending |
+| OPT-07 | Phase 4 | Pending |
+| OPT-08 | Phase 4 | Pending |
+| OPT-09 | Phase 4 | Pending |
+| SP-01 | Phase 3 | Pending |
+| SP-02 | Phase 5 | Pending |
+| SP-03 | Phase 5 | Pending |
+| SP-04 | Phase 8 | Pending |
+| SP-05 | Phase 5 | Pending |
+| SP-06 | Phase 7 | Pending |
+| RM-01 | Phase 5 | Pending |
+| RM-02 | Phase 5 | Pending |
+| RM-03 | Phase 5 | Pending |
+| RM-04 | Phase 5 | Pending |
+| RM-05 | Phase 5 | Pending |
+| RM-06 | Phase 5 | Pending |
+| RM-07 | Phase 5 | Pending |
+| RM-08 | Phase 5 | Pending |
+| UI-01 | Phase 3 | Pending |
+| UI-02 | Phase 7 | Pending |
+| UI-03 | Phase 7 | Pending |
+| UI-04 | Phase 3 | Pending |
+| UI-05 | Phase 5 | Pending |
+| UI-06 | Phase 7 | Pending |
+| UI-07 | Phase 7 | Pending |
+| UI-08 | Phase 3 | Pending |
+| UI-09 | Phase 5 | Pending |
+| TV-01 | Phase 6 | Pending |
+| TV-02 | Phase 6 | Pending |
+| TV-03 | Phase 6 | Pending |
+| TV-04 | Phase 6 | Pending |
+| TV-05 | Phase 6 | Pending |
+| TV-06 | Phase 6 | Pending |
+| TV-07 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 75 total
-- Mapped to phases: 0 (populated by roadmapper)
-- Unmapped: 75 ⚠️ (will resolve in ROADMAP.md)
+- v1 requirements: 74 total (note: prior header said 75 — the actual REQ-ID enumeration totals 74; corrected here)
+- Mapped to phases: 74 / 74 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-14*
-*Last updated: 2026-05-14 after initial definition*
+*Last updated: 2026-05-14 — traceability populated after roadmap creation*
