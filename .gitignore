@@ -11,9 +11,11 @@ __pycache__/
 *.pyc
 
 # Runtime data (DuckDB files + Parquet + audit logs). Allow .gitkeep markers to commit the tree shape.
+# Use file-glob exclusions (NOT directory exclusions) so the !.gitkeep negation can re-include the markers —
+# Git can't re-include files inside a directory whose name itself matches a gitignore rule.
 data/duckdb/*.duckdb
 data/duckdb/*.duckdb.wal
-data/parquet/
+data/parquet/**/*
 data/logs/audit/*.jsonl
 data/logs/audit/*.jsonl.*
 !data/**/.gitkeep
