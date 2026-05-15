@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Plan 01-03 complete — calendars/RTH/rollover/EventBus landed in trading-core
-last_updated: "2026-05-15T04:42:00.780Z"
+stopped_at: Phase 1 complete — FastAPI shell + apps/web finalized + full acceptance smoke green
+last_updated: "2026-05-15T05:30:00.000Z"
 last_activity: 2026-05-15
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 
 ## Current Position
 
-Phase: 01 (foundation-data-in) — EXECUTING
-Plan: 6 of 6
-Status: Ready to execute
+Phase: 01 (foundation-data-in) — COMPLETE
+Plan: 6 of 6 — complete
+Status: Phase 1 closed; ready for Phase 2 (Strategy Engine + Indicators)
 Last activity: 2026-05-15
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: [█████████░] 89%
 | Phase 01 P03 | 38m | 3 tasks | 11 files |
 | Phase 01 P04 | ~62 min | 4 tasks | 10 files |
 | Phase 01 P05 | ~110m | 2 tasks | 9 files |
+| Phase 01 P06 | ~28m  | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,10 @@ Recent decisions affecting current work:
 - [Phase ?]: Plan 01-05 — no-naive-tz hook excludes bad_naive_datetime.py fixture from --all-files so the global invariant stays green; rejection still proven by direct script call + tmp_path clone through framework
 - [Phase ?]: Plan 01-05 — httpx + httpcore stdlib loggers suppressed to WARNING in seed_bars after setup_logging; closes T-01-04-01 extension where raw apikey=<value> URLs were landing in audit JSONL bypassing TwelveDataSource._redact_url
 - [Phase ?]: Plan 01-05 — autouse _isolate_logging fixture stubs setup_logging to no-op in-process; prevents structlog cache_logger_on_first_use=True from poisoning Plan 04 capture_logs tests on same pytest run
+- [Phase 1]: Plan 01-06 — FastAPI shell ships only GET /health (T-01-06-01); module-level _settings = Settings() proves the api -> trading-core workspace import graph (FND-01 success criterion #1)
+- [Phase 1]: Plan 01-06 — api/__init__.py re-exports `from api.app import app` so `uvicorn api:app` works; consequence: `import api.app` resolves to the FastAPI instance (not the submodule) — tests grab the underlying module via sys.modules["api.app"]
+- [Phase 1]: Plan 01-06 — pytest_plugins = ["trading_core.tests.conftest"] does NOT work under --import-mode=importlib + no tests/__init__.py (Plan 01-01 decision #1); api tests use TestClient directly so the empty conftest stays empty
+- [Phase 1]: Plan 01-06 — fixed pre-existing test_seed_bars_e2e subprocess test (used bare 'uv' which fails on Windows bash where only uv.exe is on PATH); replaced with sys.executable since the test already runs inside uv run pytest
 
 ### Pending Todos
 
@@ -107,6 +112,6 @@ Items acknowledged and carried forward — none yet, this is project initializat
 
 ## Session Continuity
 
-Last session: 2026-05-15T04:39:03.841Z
-Stopped at: Plan 01-03 complete — calendars/RTH/rollover/EventBus landed in trading-core
+Last session: 2026-05-15T05:30:00.000Z
+Stopped at: Phase 1 complete — all 6 plans landed; full acceptance smoke green; ready for Phase 2 (Strategy Engine + Indicators)
 Resume file: None

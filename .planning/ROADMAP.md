@@ -16,7 +16,7 @@ A 9-phase plan (Phase 0 + Phases 1–8) that builds a single-operator intraday E
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 0: Provider Validation Spike** - Lock the v1 primary data feed via ADR; smoke-test TradingView MCP and Twelve Data coverage before any strategy work begins (completed 2026-05-14)
-- [ ] **Phase 1: Foundation + Data In** - uv workspace scaffold, repo-wide UTC/RTH discipline, `instruments.py` SoT, `DataSource` protocol with TV-primary + Twelve-Data-secondary implementations, DuckDB+Parquet storage with gap/rollover detection, `seed_bars.py` CLI, reproducibility scaffolding
+- [x] **Phase 1: Foundation + Data In** - uv workspace scaffold, repo-wide UTC/RTH discipline, `instruments.py` SoT, `DataSource` protocol with TV-primary + Twelve-Data-secondary implementations, DuckDB+Parquet storage with gap/rollover detection, `seed_bars.py` CLI, reproducibility scaffolding (completed 2026-05-15)
 - [ ] **Phase 2: Strategy Engine + Indicators** - `Strategy` protocol, `StrategyContext`, look-ahead-safe indicators (ATR Wilder / VWAP / EMA / ADR), `ORBStrategy` reference implementation, YAML strategy registration
 - [ ] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel
 - [ ] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap
@@ -74,7 +74,7 @@ Plans:
 - MD-10 (TV↔Twelve-Data daily reconciliation) requires the TV bridge and lives in Phase 6, not here.
 - When TV is the active `DataSource` and MCP is disconnected, the data layer surfaces the degraded state via the bus; the actual UI banner ships in Phase 3 (UI-08).
 
-**Plans:** 6 plans (3-wave structure)
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 01-01-PLAN.md — Workspace scaffold + uv/pnpm install + Next.js stub (Wave 1)
@@ -82,7 +82,7 @@ Plans:
 - [x] 01-03-PLAN.md — Calendars (RTH/rollover/gap) + EventBus + DST fixtures (Wave 2)
 - [x] 01-04-PLAN.md — Storage (DuckDB + Parquet + runs) + Twelve Data + TradingView adapters (Wave 2)
 - [x] 01-05-PLAN.md — seed_bars.py CLI + pre-commit hooks (no-naive-tz + gitleaks) (Wave 3)
-- [ ] 01-06-PLAN.md — FastAPI shell + apps/web finalize + Phase 1 acceptance smoke (Wave 4)
+- [x] 01-06-PLAN.md — FastAPI shell + apps/web finalize + Phase 1 acceptance smoke (Wave 4)
 
 ---
 
@@ -258,7 +258,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 0. Provider Validation Spike | 3/3 | Complete   | 2026-05-14 |
-| 1. Foundation + Data In | 0/6 | Plans authored | - |
+| 1. Foundation + Data In | 6/6 | Complete   | 2026-05-15 |
 | 2. Strategy Engine + Indicators | 0/TBD | Not started | - |
 | 3. Vertical MVP Slice + Backtester | 0/TBD | Not started | - |
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
@@ -276,4 +276,4 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 - FND-08 has cross-phase aspects: the `runs` table and hash logging infrastructure is owned by Phase 1 (primary phase); the CI assertion test is introduced in Phase 3 and expanded in Phase 8 — captured in Cross-Phase Guardrails above.
 - MD-10 is owned by Phase 6 (not Phase 1) because daily TV↔Twelve-Data reconciliation requires the TV bridge to exist.
 
-*Last updated: 2026-05-14 — Phase 1 plans authored (6 plans, 3-wave structure).*
+*Last updated: 2026-05-15 — Phase 1 complete (6/6 plans; FastAPI shell + Next.js stub finalized; full acceptance smoke green).*
