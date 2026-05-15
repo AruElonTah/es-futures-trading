@@ -4,14 +4,14 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Plan 01-03 complete — calendars/RTH/rollover/EventBus landed in trading-core
-last_updated: "2026-05-14T21:05:19.713Z"
-last_activity: 2026-05-14
+last_updated: "2026-05-15T04:42:00.780Z"
+last_activity: 2026-05-15
 progress:
   total_phases: 9
   completed_phases: 1
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 ## Current Position
 
 Phase: 01 (foundation-data-in) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
-Last activity: 2026-05-14
+Last activity: 2026-05-15
 
-Progress: [████████░░] 78%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [████████░░] 78%
 | Phase 01 P02 | 7m 23s | 3 tasks | 23 files |
 | Phase 01 P03 | 38m | 3 tasks | 11 files |
 | Phase 01 P04 | ~62 min | 4 tasks | 10 files |
+| Phase 01 P05 | ~110m | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,11 @@ Recent decisions affecting current work:
 - [Phase ?]: Plan 04 — TradingViewDataSource is per-call (fresh stdio_client + ClientSession on every fetch_bars); Phase 6 TVBridge will own the long-lived supervised session
 - [Phase ?]: Plan 04 — TwelveDataSource reads twelvedata_api_key lazily at fetch time (not __init__); supports .env hot-rotation
 - [Phase ?]: Plan 04 — data_hash baseline for the 390-row SPY synthetic-day fixture: 2d61c1889a7dbca4fee3e3cf7ea719be6cb3e12810d575635e69d38a6bbdb19f (Phase 3 CI gate)
+- [Phase ?]: Plan 01-05 — exit-code triple {0 ok, 1 failed, 2 partial}; status='partial' means bars loaded but len(gaps) > 0
+- [Phase ?]: Plan 01-05 — pre-commit gitleaks entry scans git INDEX, not --files content; tests shell out to cached binary directly via gitleaks detect --no-git --source
+- [Phase ?]: Plan 01-05 — no-naive-tz hook excludes bad_naive_datetime.py fixture from --all-files so the global invariant stays green; rejection still proven by direct script call + tmp_path clone through framework
+- [Phase ?]: Plan 01-05 — httpx + httpcore stdlib loggers suppressed to WARNING in seed_bars after setup_logging; closes T-01-04-01 extension where raw apikey=<value> URLs were landing in audit JSONL bypassing TwelveDataSource._redact_url
+- [Phase ?]: Plan 01-05 — autouse _isolate_logging fixture stubs setup_logging to no-op in-process; prevents structlog cache_logger_on_first_use=True from poisoning Plan 04 capture_logs tests on same pytest run
 
 ### Pending Todos
 
@@ -101,6 +107,6 @@ Items acknowledged and carried forward — none yet, this is project initializat
 
 ## Session Continuity
 
-Last session: 2026-05-14T21:04:53.179Z
+Last session: 2026-05-15T04:39:03.841Z
 Stopped at: Plan 01-03 complete — calendars/RTH/rollover/EventBus landed in trading-core
 Resume file: None
