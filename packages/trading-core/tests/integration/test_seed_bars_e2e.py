@@ -550,9 +550,17 @@ class TestSeedBarsRateLimited:
 @pytest.mark.integration
 class TestSeedBarsCli:
     def test_help_exits_zero_and_lists_flags(self) -> None:
-        """`python scripts/seed_bars.py --help` exits 0 and shows all flags."""
+        """`python scripts/seed_bars.py --help` exits 0 and shows all flags.
+
+        Uses ``sys.executable`` directly (the same interpreter running pytest)
+        rather than ``["uv", "run", "python", ...]`` — the test is already
+        executing inside ``uv run pytest`` so the venv is active. Invoking
+        bare ``uv`` requires it on PATH, which is not guaranteed under all
+        shells on Windows (Plan 01-06 fixed this — the original test failed
+        with FileNotFoundError under bash where only ``uv.exe`` was on PATH).
+        """
         result = subprocess.run(
-            ["uv", "run", "python", str(_SEED_SCRIPT), "--help"],
+            [sys.executable, str(_SEED_SCRIPT), "--help"],
             cwd=_REPO_ROOT,
             capture_output=True,
             text=True,

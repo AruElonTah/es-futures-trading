@@ -72,9 +72,23 @@ def test_app_imports_trading_core_settings() -> None:
 
     The api package depends on trading-core via `[tool.uv.sources] workspace=true`;
     importing Settings inside api/app.py is the proof.
-    """
-    import api.app as app_module
 
-    # Module-level _settings is a Settings instance (or the Settings class is
-    # importable from app_module's namespace at minimum).
-    assert hasattr(app_module, "_settings") or hasattr(app_module, "Settings")
+    Implementation note: the api/__init__.py re-exports ``app`` as
+    ``from api.app import app`` which makes ``api.app`` resolve to the FastAPI
+    instance at the package namespace level. To inspect the underlying module,
+    grab it from ``sys.modules`` after the import has been triggered.
+    """
+    import sys
+
+    import api  # noqa: F401  triggers the re-export
+
+    submodule = sys.modules["api.app"]
+    # Module-level _settings IS a Settings instance built at module load
+    assert hasattr(submodule, "_settings"), (
+        "api.app must instantiate trading_core.config.Settings at module top "
+        "to prove the workspace dep wires correctly (FND-01)"
+    )
+    # And the Settings symbol is in the module namespace (proves the import)
+    assert hasattr(submodule, "Settings"), (
+        "api.app must import Settings from trading_core.config (FND-01)"
+    )
