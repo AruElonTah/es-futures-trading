@@ -15,6 +15,7 @@ dependencies = [
     "uuid6>=2025.0,<2026.0",
     "rich",
     "mcp>=1.0,<2.0",
+    "pyyaml>=6.0",
 ]
 
 [build-system]

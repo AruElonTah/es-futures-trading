@@ -1,0 +1,13 @@
+# Opening Range Breakout strategy configuration.
+# Phase 7 hot-reload: the UI writes updated params back here via POST /api/strategies/{id}/params
+name: opening_range_breakout
+strategy_id: orb-v1
+version: "1.0"
+class: trading_core.strategy.orb.ORBStrategy
+params:
+  opening_range_minutes: 15
+  atr_period: 14
+  atr_stop_mult: 1.5
+  r_target: 2.0
+  ema_period: 20
+  min_range_ticks: 2
