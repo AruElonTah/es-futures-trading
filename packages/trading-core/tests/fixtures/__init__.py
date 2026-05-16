@@ -16,10 +16,13 @@ from .dst_bars import (
     make_dst_spring_forward_2026_03_09_bars,
     make_synthetic_spy_day_bars,
 )
+from .orb_day import orb_day_bars, rollover_seam_day_bars
 
 __all__ = [
     "make_cme_half_day_2024_11_29_bars",
     "make_dst_fall_back_2026_11_02_bars",
     "make_dst_spring_forward_2026_03_09_bars",
     "make_synthetic_spy_day_bars",
+    "orb_day_bars",
+    "rollover_seam_day_bars",
 ]
