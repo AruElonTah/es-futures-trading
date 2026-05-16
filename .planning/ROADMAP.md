@@ -18,6 +18,12 @@ A 9-phase plan (Phase 0 + Phases 1–8) that builds a single-operator intraday E
 - [x] **Phase 0: Provider Validation Spike** - Lock the v1 primary data feed via ADR; smoke-test TradingView MCP and Twelve Data coverage before any strategy work begins (completed 2026-05-14)
 - [x] **Phase 1: Foundation + Data In** - uv workspace scaffold, repo-wide UTC/RTH discipline, `instruments.py` SoT, `DataSource` protocol with TV-primary + Twelve-Data-secondary implementations, DuckDB+Parquet storage with gap/rollover detection, `seed_bars.py` CLI, reproducibility scaffolding (completed 2026-05-15)
 - [ ] **Phase 2: Strategy Engine + Indicators** - `Strategy` protocol, `StrategyContext`, look-ahead-safe indicators (ATR Wilder / VWAP / EMA / ADR), `ORBStrategy` reference implementation, YAML strategy registration
+
+**Plans:** 0/2 plans complete
+
+Plans:
+- [ ] 02-01-PLAN.md — Signal + StrategyContext models + look-ahead-safe indicators ATR/VWAP/EMA/ADR (Wave 1)
+- [ ] 02-02-PLAN.md — ORBStrategy + YAML config + StrategyRegistry + acceptance tests (Wave 2)
 - [ ] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel
 - [ ] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap
 - [ ] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel
@@ -259,7 +265,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 |-------|----------------|--------|-----------|
 | 0. Provider Validation Spike | 3/3 | Complete   | 2026-05-14 |
 | 1. Foundation + Data In | 6/6 | Complete   | 2026-05-15 |
-| 2. Strategy Engine + Indicators | 0/TBD | Not started | - |
+| 2. Strategy Engine + Indicators | 0/2 | In progress | - |
 | 3. Vertical MVP Slice + Backtester | 0/TBD | Not started | - |
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
 | 5. Risk Manager + Full Audit + Controls | 0/TBD | Not started | - |
