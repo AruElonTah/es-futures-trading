@@ -23,10 +23,10 @@ router = APIRouter()
 log = get_logger(__name__)
 
 # Path-traversal guard for the equity endpoint (T-03-05-01).
-# Four parents up from packages/api/src/api/routes/backtests.py reaches the repo root.
-# _EQUITY_ROOT must be inside data/parquet/equity/ under the repo root.
+# Five parents up from packages/api/src/api/routes/backtests.py reaches the repo root:
+# routes/ -> api/ -> src/ -> api(pkg)/ -> packages/ -> repo root
 _EQUITY_ROOT: Path = (
-    Path(__file__).resolve().parents[4] / "data" / "parquet" / "equity"
+    Path(__file__).resolve().parents[5] / "data" / "parquet" / "equity"
 ).resolve()
 assert _EQUITY_ROOT.name == "equity", (
     f"_EQUITY_ROOT path math error — expected 'equity', got '{_EQUITY_ROOT.name}'"
@@ -139,7 +139,7 @@ def get_backtest_equity(
     if candidate.is_absolute():
         abs_path = candidate.resolve()
     else:
-        _repo_root = Path(__file__).resolve().parents[4]
+        _repo_root = Path(__file__).resolve().parents[5]
         abs_path = (_repo_root / equity_curve_path).resolve()
 
     try:

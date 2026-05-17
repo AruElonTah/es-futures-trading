@@ -272,7 +272,7 @@ async def main(args: argparse.Namespace) -> int:
             from_ts=args.frm,
             to_ts=args.to,
             param_hash=param_hash(args_dict),
-            equity_curve_path=str(equity_path.relative_to(_REPO_ROOT)),
+            equity_curve_path=str(equity_path.resolve().relative_to(_REPO_ROOT)),
             total_return=m["total_return"] if m["total_return"] is not None else 0.0,
             cagr=m["cagr"] if m["cagr"] is not None else 0.0,
             sharpe=m["sharpe"] if m["sharpe"] is not None else 0.0,
