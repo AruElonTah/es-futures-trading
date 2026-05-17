@@ -128,16 +128,22 @@ class TestWorkerNoApiImport:
     """T-04-02-01 / D-07: workers import only trading-core, never api or tv_bridge."""
 
     def test_worker_no_api_import(self):
-        """worker.py source must not contain 'import api' or 'import tv_bridge'."""
+        """worker.py source must not have an 'import api' or 'from api' statement."""
+        import re  # noqa: PLC0415
         source = _WORKER_SRC.read_text(encoding="utf-8")
-        assert "import api" not in source, (
+        # Match actual Python import statements: "import api" or "from api import ..."
+        # Use regex to avoid matching comments like "# must never import api"
+        api_import_pattern = re.compile(r"^\s*(import api|from api[\s.]+)", re.MULTILINE)
+        assert not api_import_pattern.search(source), (
             "worker.py must not import api (D-07 violation: T-04-02-01)"
         )
 
     def test_worker_no_tv_bridge_import(self):
-        """worker.py source must not contain 'import tv_bridge'."""
+        """worker.py source must not have an 'import tv_bridge' or 'from tv_bridge' statement."""
+        import re  # noqa: PLC0415
         source = _WORKER_SRC.read_text(encoding="utf-8")
-        assert "import tv_bridge" not in source, (
+        tv_import_pattern = re.compile(r"^\s*(import tv_bridge|from tv_bridge[\s.]+)", re.MULTILINE)
+        assert not tv_import_pattern.search(source), (
             "worker.py must not import tv_bridge (D-07 violation: T-04-02-01)"
         )
 
