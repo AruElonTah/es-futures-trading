@@ -25,7 +25,7 @@ Plans:
 - [x] 02-01-PLAN.md — Signal + StrategyContext models + look-ahead-safe indicators ATR/VWAP/EMA/ADR (Wave 1)
 - [x] 02-02-PLAN.md — ORBStrategy + YAML config + StrategyRegistry + acceptance tests (Wave 2)
 - [x] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel (completed 2026-05-17)
-- [ ] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap
+- [x] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap (completed 2026-05-17)
 - [ ] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel
 - [ ] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring
 - [ ] **Phase 7: Bloomberg-Density UI Polish** - Multi-pane Next.js dark/dense layout, WebSocket reconnect with sequence numbers and snapshot resync, trade history + equity curve panel, strategy controls with hot-reload, full hotkey registry
@@ -165,12 +165,12 @@ Plans:
 - Workers must only import `trading-core` (not `api` or `tv-bridge`) — Anti-Pattern 5 from ARCHITECTURE.md.
 - Walk-forward warmup uses bars from *before* the IS window — never spans into OOS (BL-4).
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
-- [ ] 04-01-PLAN.md — DuckDB schema extensions (opt_runs/opt_results/holdout_burns) + OptSpace model + orb.optspace.yaml + fold splitter + Wave 0 test stubs (Wave 1)
-- [ ] 04-02-PLAN.md — run_combo worker module + run_opt.py CLI with ADR gate, holdout guard, ProcessPoolExecutor dispatch and aggregation (Wave 2)
-- [ ] 04-03-PLAN.md — FastAPI /optimizations routes + Next.js /optimizations leaderboard + Plotly heatmap + dashboard header link (Wave 3)
+- [x] 04-01-PLAN.md — DuckDB schema extensions (opt_runs/opt_results/holdout_burns) + OptSpace model + orb.optspace.yaml + fold splitter + Wave 0 test stubs (Wave 1)
+- [x] 04-02-PLAN.md — run_combo worker module + run_opt.py CLI with ADR gate, holdout guard, ProcessPoolExecutor dispatch and aggregation (Wave 2)
+- [x] 04-03-PLAN.md — FastAPI /optimizations routes + Next.js /optimizations leaderboard + Plotly heatmap + dashboard header link (Wave 3)
 
 ---
 
