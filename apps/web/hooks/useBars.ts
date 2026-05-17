@@ -17,9 +17,8 @@ export function useBars(
   return useQuery<BarRow[]>({
     queryKey: ['bars', symbol, tf, limit],
     queryFn: async () => {
-      const res = await fetch(
-        `${API_BASE}/bars?symbol=${symbol}&tf=${tf}&limit=${limit}`
-      )
+      const params = new URLSearchParams({ symbol, tf, limit: String(limit) })
+      const res = await fetch(`${API_BASE}/bars?${params}`)
       if (!res.ok) {
         throw new Error(
           `GET /bars failed: ${res.status} ${res.statusText}`
