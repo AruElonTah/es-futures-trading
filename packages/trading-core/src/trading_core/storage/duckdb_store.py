@@ -72,6 +72,26 @@ INSERT INTO runs (run_id, git_sha, data_hash, param_hash, seed, adr_hash,
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 """
 
+# D-01: Backtest metrics persistence (Phase 3 Plan 01).
+# All 20 columns; no ON CONFLICT — run_id (uuid7) is unique per run.
+WRITE_BACKTEST_SQL = """
+INSERT INTO backtests (run_id, strategy_id, symbol, timeframe, from_ts, to_ts,
+    param_hash, equity_curve_path, total_return, cagr, sharpe, sortino, calmar,
+    max_dd, max_dd_duration_bars, win_rate, expectancy, profit_factor,
+    trade_count, avg_hold_bars)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+"""
+
+# D-02: Per-trade attribution persistence (Phase 3 Plan 01).
+# 15 base D-02 fields + stop_price + target_price (nullable).
+# No ON CONFLICT — trade_id (uuid7) is unique per trade.
+WRITE_TRADE_SQL = """
+INSERT INTO trades (trade_id, run_id, signal_id, strategy_id, side, entry_price,
+    exit_price, exit_reason, entry_ts_utc, exit_ts_utc, pnl, size,
+    slippage_ticks, mae, mfe, stop_price, target_price)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+"""
+
 
 class DuckDBStore:
     """Owns a DuckDB connection and the bar/run persistence surface.
@@ -207,6 +227,102 @@ class DuckDBStore:
                 notes,
             ],
         )
+
+    # ---- backtest + trades writers ----------------------------------------
+
+    def write_backtest(
+        self,
+        *,
+        run_id: str,
+        strategy_id: str,
+        symbol: str,
+        timeframe: str,
+        from_ts: datetime,
+        to_ts: datetime,
+        param_hash: str,
+        equity_curve_path: str,
+        total_return: float,
+        cagr: float,
+        sharpe: float,
+        sortino: float,
+        calmar: float,
+        max_dd: float,
+        max_dd_duration_bars: int,
+        win_rate: float,
+        expectancy: float,
+        profit_factor: float,
+        trade_count: int,
+        avg_hold_bars: float,
+    ) -> None:
+        """Persist a single ``backtests`` row.
+
+        All keyword-only. Plain INSERT — run_id (uuid7) is unique per run;
+        no upsert needed. Parameterized queries enforce T-03-01-01 (no SQL
+        injection via caller-supplied strings).
+        """
+        self._conn.execute(
+            WRITE_BACKTEST_SQL,
+            [
+                run_id,
+                strategy_id,
+                symbol,
+                timeframe,
+                from_ts,
+                to_ts,
+                param_hash,
+                equity_curve_path,
+                float(total_return),
+                float(cagr),
+                float(sharpe),
+                float(sortino),
+                float(calmar),
+                float(max_dd),
+                int(max_dd_duration_bars),
+                float(win_rate),
+                float(expectancy),
+                float(profit_factor),
+                int(trade_count),
+                float(avg_hold_bars),
+            ],
+        )
+
+    def write_trades(self, trades: list[dict]) -> int:
+        """Persist a list of trade rows to the ``trades`` table.
+
+        Args:
+            trades: List of dicts with D-02 keys. ``stop_price`` and
+                ``target_price`` are optional (use ``trade.get(...)`` for
+                NULL-safe handling — non-ORB strategies omit them).
+
+        Returns:
+            Number of rows inserted. Zero when ``trades`` is empty.
+        """
+        if not trades:
+            return 0
+        rows: list[tuple[Any, ...]] = [
+            (
+                t["trade_id"],
+                t["run_id"],
+                t["signal_id"],
+                t["strategy_id"],
+                t["side"],
+                float(t["entry_price"]),
+                float(t["exit_price"]),
+                t["exit_reason"],
+                t["entry_ts_utc"],
+                t["exit_ts_utc"],
+                float(t["pnl"]),
+                int(t["size"]),
+                int(t["slippage_ticks"]),
+                float(t["mae"]),
+                float(t["mfe"]),
+                float(t["stop_price"]) if t.get("stop_price") is not None else None,
+                float(t["target_price"]) if t.get("target_price") is not None else None,
+            )
+            for t in trades
+        ]
+        self._conn.executemany(WRITE_TRADE_SQL, rows)
+        return len(rows)
 
     # ---- Parquet partition write -----------------------------------------
 
