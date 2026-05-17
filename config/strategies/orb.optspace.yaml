@@ -1,0 +1,23 @@
+# ORB coarse parameter grid — Phase 4 optimization (D-02).
+#
+# 5x5x5 = 125 combos. Each axis has exactly 5 values (OPT-06 minimum).
+# Param names map 1:1 to ORBConfig dataclass fields.
+#
+# Walk-forward defaults (override via run_opt.py flags or ADR):
+#   IS window: 6 months (~126 trading days)
+#   OOS window: 1 month (~21 trading days)
+#   Step: 1 month
+strategy: orb
+
+params:
+  opening_range_minutes:
+    type: list
+    values: [5, 10, 15, 20, 30]    # 5 points — opening range duration in minutes
+
+  atr_stop_mult:
+    type: list
+    values: [1.0, 1.5, 2.0, 2.5, 3.0]  # 5 points — ATR multiplier for initial stop
+
+  r_target:
+    type: list
+    values: [1.5, 2.0, 2.5, 3.0, 3.5]  # 5 points — reward-to-risk target multiple
