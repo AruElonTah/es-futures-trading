@@ -19,6 +19,7 @@
  */
 
 import { useMemo } from 'react'
+import Link from 'next/link'
 import { useStream } from '@/hooks/useStream'
 import { useBars } from '@/hooks/useBars'
 import { useBacktests, useEquityCurve, useEquityTrades } from '@/hooks/useBacktests'
@@ -137,10 +138,25 @@ export default function DashboardPage() {
         <ETClock />
         <ConnectionStatus />
 
+        <Link
+          href="/optimizations"
+          style={{
+            marginLeft: 'auto',
+            color: '#4a90d9',
+            textDecoration: 'none',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            padding: '4px 12px',
+            border: '1px solid #2a5a8a',
+            borderRadius: '4px',
+          }}
+        >
+          Optimizations
+        </Link>
+
         <button
           disabled
           style={{
-            marginLeft: 'auto',
             backgroundColor: 'transparent',
             border: '1px solid #444',
             color: '#666',
