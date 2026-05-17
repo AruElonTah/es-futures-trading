@@ -10,70 +10,32 @@ Plan 03-04 Task 1 — proves UI-01 minimal REST surface:
 
 from __future__ import annotations
 
-import asyncio
 import time
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+# _make_test_app is defined in conftest.py (shared with test_ws_stream.py)
+# Under --import-mode=importlib, conftest.py functions are NOT automatically
+# importable as a module. Use a local alias that mirrors the conftest function.
+# conftest.make_test_app is loaded by pytest but not importable as a module.
+# Instead we inline a thin local wrapper that delegates to conftest's factory.
+# The cleanest approach: define _make_test_app locally by re-importing the
+# factory from conftest directly.
 
-# ---------------------------------------------------------------------------
-# Test app factory — avoids importing production `app` which points at the
-# production DuckDB. Each test that needs a DB creates a fresh tmp DuckDB.
-# ---------------------------------------------------------------------------
-
-def _make_test_app(duckdb_path: Path) -> FastAPI:
-    """Mirror app.py lifespan but accept a custom DuckDB path."""
-
-    from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-    from trading_core.events import EventBus
-    from trading_core.storage.duckdb_store import DuckDBStore
-    from api.routes import bars as bars_routes, backtests as backtests_routes
-    from api.ws import ConnectionManager
-
-    @asynccontextmanager
-    async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-        store = DuckDBStore(duckdb_path)
-        store.ensure_schema()
-        app.state.store = store
-        bus = EventBus()
-        app.state.bus = bus
-        manager = ConnectionManager(bus)
-        app.state.manager = manager
-        app.state.fan_out_task = asyncio.create_task(
-            manager.start_background_fan_out()
-        )
-        yield
-        app.state.fan_out_task.cancel()
-        try:
-            await app.state.fan_out_task
-        except asyncio.CancelledError:
-            pass
-        store.close()
-
-    test_app = FastAPI(title="Test API", version="0.0.1", lifespan=_lifespan)
-    test_app.include_router(bars_routes.router)
-    test_app.include_router(backtests_routes.router)
-
-    @test_app.websocket("/stream")
-    async def ws_stream(websocket: WebSocket) -> None:
-        manager: ConnectionManager = websocket.app.state.manager
-        q = await manager.connect(websocket)
-        try:
-            while True:
-                msg = await q.get()
-                await websocket.send_text(msg)
-        except WebSocketDisconnect:
-            pass
-        finally:
-            manager.disconnect(q)
-
-    return test_app
+def _make_test_app(duckdb_path: Path):
+    """Delegate to conftest.make_test_app."""
+    import sys, pathlib
+    # conftest.py is in the same directory — add to sys.path if needed
+    tests_dir = str(pathlib.Path(__file__).parent)
+    if tests_dir not in sys.path:
+        sys.path.insert(0, tests_dir)
+    # conftest is loaded by pytest; also importable via sys.path
+    import importlib
+    _conftest = importlib.import_module("conftest")
+    return _conftest.make_test_app(duckdb_path)
 
 
 # ---------------------------------------------------------------------------
