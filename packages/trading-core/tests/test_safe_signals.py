@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import patch  # noqa: F401 — used in TestInternalShift
 
 import pandas as pd
 import pytest
@@ -116,6 +116,38 @@ class TestRejectsStringPrice:
 # ---------------------------------------------------------------------------
 
 class TestInternalShift:
+    """Verify shift(1) is applied internally to entries/exits.
+
+    Strategy: mock the internal _shift_bool helper or inspect via a wrapper
+    around safe_from_signals that intercepts what gets passed to VBT.
+
+    We test the BEHAVIOR (shift applied) rather than the mechanism (which internal
+    function is called), by calling safe_from_signals with a capturing wrapper
+    that replaces vbt.Portfolio.from_signals with a classmethod-compatible spy.
+    """
+
+    def _make_vbt_spy(self):
+        """Return (captured_kwargs dict, classmethod spy) for patching from_signals.
+
+        VBT's from_signals is a classmethod. We capture kwargs by wrapping the
+        real underlying function. The spy does NOT call VBT (to avoid Numba
+        overhead in these unit tests) — it just captures the kwargs and returns a
+        sentinel None.
+        """
+        captured: dict = {}
+
+        def _spy(cls, close, entries, exits, **kwargs):
+            captured["entries"] = entries
+            captured["exits"] = exits
+            captured["kwargs"] = kwargs
+            # Return None — the test only checks shifted kwargs, not the portfolio
+            # We set short_entries / short_exits in kwargs for the None-injection test
+            if "short_entries" in kwargs:
+                captured["short_entries"] = kwargs["short_entries"]
+            return None  # tests don't inspect the portfolio here
+
+        return captured, _spy
+
     def test_entries_shifted_by_1(self):
         """Entry at bar[0] feeds VBT entries=False at bar[0], True at bar[1]."""
         close = _make_price_series([1.0, 2.0, 3.0, 4.0])
@@ -123,13 +155,8 @@ class TestInternalShift:
         exits = _make_bool_series([False, False, False, True])
         price = _make_price_series([1.0, 2.0, 3.0, 4.0])
 
-        captured_kwargs: dict = {}
-
-        def _capturing_from_signals(**kwargs):
-            captured_kwargs.update(kwargs)
-            return vbt.Portfolio.from_signals(**kwargs)
-
-        with patch.object(vbt.Portfolio, "from_signals", side_effect=_capturing_from_signals):
+        captured, spy = self._make_vbt_spy()
+        with patch("trading_core.backtest.safe_signals.vbt.Portfolio.from_signals", new=classmethod(spy)):
             safe_from_signals(
                 close=close,
                 entries=entries,
@@ -141,13 +168,9 @@ class TestInternalShift:
                 direction="longonly",
             )
 
-        shifted_entries = captured_kwargs["entries"]
-        assert shifted_entries.iloc[0] is False or shifted_entries.iloc[0] == False, (
-            "Entry at bar[0] must be False after shift(1)"
-        )
-        assert shifted_entries.iloc[1] is True or shifted_entries.iloc[1] == True, (
-            "Entry at bar[1] must be True after shift(1)"
-        )
+        shifted_entries = captured["entries"]
+        assert not shifted_entries.iloc[0], "Entry at bar[0] must be False after shift(1)"
+        assert shifted_entries.iloc[1], "Entry at bar[1] must be True after shift(1)"
 
     def test_exits_shifted_by_1(self):
         """Exit at bar[2] feeds VBT exits=False at bar[2], True at bar[3]."""
@@ -156,13 +179,8 @@ class TestInternalShift:
         exits = _make_bool_series([False, False, True, False])
         price = _make_price_series([1.0, 2.0, 3.0, 4.0])
 
-        captured_kwargs: dict = {}
-
-        def _capturing_from_signals(**kwargs):
-            captured_kwargs.update(kwargs)
-            return vbt.Portfolio.from_signals(**kwargs)
-
-        with patch.object(vbt.Portfolio, "from_signals", side_effect=_capturing_from_signals):
+        captured, spy = self._make_vbt_spy()
+        with patch("trading_core.backtest.safe_signals.vbt.Portfolio.from_signals", new=classmethod(spy)):
             safe_from_signals(
                 close=close,
                 entries=entries,
@@ -174,13 +192,9 @@ class TestInternalShift:
                 direction="longonly",
             )
 
-        shifted_exits = captured_kwargs["exits"]
-        assert shifted_exits.iloc[2] is False or shifted_exits.iloc[2] == False, (
-            "Exit at bar[2] must be False after shift(1)"
-        )
-        assert shifted_exits.iloc[3] is True or shifted_exits.iloc[3] == True, (
-            "Exit at bar[3] must be True after shift(1)"
-        )
+        shifted_exits = captured["exits"]
+        assert not shifted_exits.iloc[2], "Exit at bar[2] must be False after shift(1)"
+        assert shifted_exits.iloc[3], "Exit at bar[3] must be True after shift(1)"
 
     def test_short_entries_shifted_when_supplied(self):
         """short_entries is shifted by 1 when passed."""
@@ -191,13 +205,8 @@ class TestInternalShift:
         short_exits = _make_bool_series([False, False, True, False])
         price = _make_price_series([1.0, 2.0, 3.0, 4.0])
 
-        captured_kwargs: dict = {}
-
-        def _capturing_from_signals(**kwargs):
-            captured_kwargs.update(kwargs)
-            return vbt.Portfolio.from_signals(**kwargs)
-
-        with patch.object(vbt.Portfolio, "from_signals", side_effect=_capturing_from_signals):
+        captured, spy = self._make_vbt_spy()
+        with patch("trading_core.backtest.safe_signals.vbt.Portfolio.from_signals", new=classmethod(spy)):
             safe_from_signals(
                 close=close,
                 entries=entries,
@@ -211,10 +220,10 @@ class TestInternalShift:
                 direction="both",
             )
 
-        assert "short_entries" in captured_kwargs, "short_entries must be forwarded to VBT"
-        shifted_short_ent = captured_kwargs["short_entries"]
-        assert shifted_short_ent.iloc[0] is False or shifted_short_ent.iloc[0] == False
-        assert shifted_short_ent.iloc[1] is True or shifted_short_ent.iloc[1] == True
+        assert "short_entries" in captured, "short_entries must be forwarded to VBT"
+        shifted_short_ent = captured["short_entries"]
+        assert not shifted_short_ent.iloc[0], "short_entries[0] must be False after shift(1)"
+        assert shifted_short_ent.iloc[1], "short_entries[1] must be True after shift(1)"
 
     def test_short_entries_none_not_injected(self):
         """When short_entries is None, 'short_entries' key is NOT passed to VBT."""
@@ -223,13 +232,8 @@ class TestInternalShift:
         exits = _make_bool_series([False, False, False, True])
         price = _make_price_series([1.0, 2.0, 3.0, 4.0])
 
-        captured_kwargs: dict = {}
-
-        def _capturing_from_signals(**kwargs):
-            captured_kwargs.update(kwargs)
-            return vbt.Portfolio.from_signals(**kwargs)
-
-        with patch.object(vbt.Portfolio, "from_signals", side_effect=_capturing_from_signals):
+        captured, spy = self._make_vbt_spy()
+        with patch("trading_core.backtest.safe_signals.vbt.Portfolio.from_signals", new=classmethod(spy)):
             safe_from_signals(
                 close=close,
                 entries=entries,
@@ -242,7 +246,7 @@ class TestInternalShift:
                 # short_entries not passed (defaults to None)
             )
 
-        assert "short_entries" not in captured_kwargs, (
+        assert "short_entries" not in captured, (
             "short_entries key must NOT be in VBT kwargs when caller does not supply it"
         )
 
