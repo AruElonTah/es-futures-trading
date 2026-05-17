@@ -23,10 +23,17 @@ router = APIRouter()
 log = get_logger(__name__)
 
 # Path-traversal guard for the equity endpoint (T-03-05-01).
-# Five parents up from packages/api/src/api/routes/backtests.py reaches the repo root:
-# routes/ -> api/ -> src/ -> api(pkg)/ -> packages/ -> repo root
+# Anchor to the repo root by walking upward until pyproject.toml is found
+# rather than hard-coding a parent count that breaks on directory restructures (WR-001).
+def _find_repo_root(start: Path) -> Path:
+    """Walk upward from *start* until a directory containing pyproject.toml is found."""
+    for candidate in [start, *start.parents]:
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    raise RuntimeError(f"Could not locate repo root from {start}")
+
 _EQUITY_ROOT: Path = (
-    Path(__file__).resolve().parents[5] / "data" / "parquet" / "equity"
+    _find_repo_root(Path(__file__).resolve()) / "data" / "parquet" / "equity"
 ).resolve()
 assert _EQUITY_ROOT.name == "equity", (
     f"_EQUITY_ROOT path math error — expected 'equity', got '{_EQUITY_ROOT.name}'"
@@ -139,7 +146,7 @@ def get_backtest_equity(
     if candidate.is_absolute():
         abs_path = candidate.resolve()
     else:
-        _repo_root = Path(__file__).resolve().parents[5]
+        _repo_root = _find_repo_root(Path(__file__).resolve())
         abs_path = (_repo_root / equity_curve_path).resolve()
 
     try:
