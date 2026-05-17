@@ -234,6 +234,12 @@ class BacktestEngine:
                 entry_idx = open_position["entry_idx"]
                 fill_qty = open_position["fill_qty"]
 
+                # Do not check exit on the bar where the entry fires; the fill
+                # executes at the OPEN of bars[entry_idx], so exit checks must
+                # begin at entry_idx, not at the signal bar (entry_idx - 1).
+                if i < entry_idx:          # signal bar: skip exit check entirely
+                    continue
+
                 is_last_rth_bar = (i == n - 1)
                 exit_result = executor.check_exit(
                     side=sig.side,
