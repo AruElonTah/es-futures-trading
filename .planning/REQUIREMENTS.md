@@ -44,15 +44,15 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 
 ### Backtesting Module (BT)
 
-- [ ] **BT-01**: `BacktestEngine` consumes `(DataSource, Strategy, RiskManager, Executor, config)` and emits `BacktestResult{trades, equity_curve, metrics, attribution_ledger}`; same `Strategy.on_bar` is driven by a `SyntheticClock` over historical bars
-- [ ] **BT-02**: `safe_from_signals()` wrapper around `vbt.Portfolio.from_signals` mandates `entries.shift(1)` and `price='nextbar'`; direct calls to `from_signals` blocked by a `noqa`-style lint check
-- [ ] **BT-03**: Fill simulation: next-bar-open entry + configurable tick slippage (1 tick default, session-phase-aware adjustment of ≥1.5 ticks during the 9:30 open window) + per-side commission + worst-case intrabar stop/target resolution when both touch
-- [ ] **BT-04**: Standard metrics: total return, CAGR, Sharpe, Sortino, Calmar, max drawdown, max drawdown duration, win rate, expectancy ($/trade), profit factor, trade count, average hold time
-- [ ] **BT-05**: Per-trade MAE / MFE persisted alongside trade ledger
-- [ ] **BT-06**: Full attribution chain persisted: every fill row references the signal row that produced it and the risk-decision row that approved it
-- [ ] **BT-07**: **Lookahead-leakage detector**: a CI assertion test constructs a deliberately-leaking strategy (`close.shift(-1)` based) and asserts the `safe_from_signals()` wrapper neutralizes it (Sharpe stays finite, win rate ~50%); test must run on every PR
-- [ ] **BT-08**: EOD forced flat: at `session_close - 60s` wall-clock (live) or last RTH bar (backtest), any open position is closed at next-bar-open; assertion `sum(positions) == 0` after EOD
-- [ ] **BT-09**: Backtest CLI: `run_backtest.py --strategy orb --symbol SPY --tf 1m --from 2024-01-01 --to 2026-04-30 --config <yaml>` produces a `BacktestResult` row in DuckDB + equity-curve Parquet
+- [x] **BT-01**: `BacktestEngine` consumes `(DataSource, Strategy, RiskManager, Executor, config)` and emits `BacktestResult{trades, equity_curve, metrics, attribution_ledger}`; same `Strategy.on_bar` is driven by a `SyntheticClock` over historical bars — Validated in Phase 3
+- [x] **BT-02**: `safe_from_signals()` wrapper around `vbt.Portfolio.from_signals` mandates `entries.shift(1)` and `price='nextbar'`; direct calls to `from_signals` blocked by a `noqa`-style lint check — Validated in Phase 3
+- [x] **BT-03**: Fill simulation: next-bar-open entry + configurable tick slippage (1 tick default, session-phase-aware adjustment of ≥1.5 ticks during the 9:30 open window) + per-side commission + worst-case intrabar stop/target resolution when both touch — Validated in Phase 3
+- [x] **BT-04**: Standard metrics: total return, CAGR, Sharpe, Sortino, Calmar, max drawdown, max drawdown duration, win rate, expectancy ($/trade), profit factor, trade count, average hold time — Validated in Phase 3
+- [x] **BT-05**: Per-trade MAE / MFE persisted alongside trade ledger — Validated in Phase 3
+- [x] **BT-06**: Full attribution chain persisted: every fill row references the signal row that produced it and the risk-decision row that approved it — Validated in Phase 3
+- [x] **BT-07**: **Lookahead-leakage detector**: a CI assertion test constructs a deliberately-leaking strategy (`close.shift(-1)` based) and asserts the `safe_from_signals()` wrapper neutralizes it (Sharpe stays finite, win rate ~50%); test must run on every PR — Validated in Phase 3
+- [x] **BT-08**: EOD forced flat: at `session_close - 60s` wall-clock (live) or last RTH bar (backtest), any open position is closed at next-bar-open; assertion `sum(positions) == 0` after EOD — Validated in Phase 3
+- [x] **BT-09**: Backtest CLI: `run_backtest.py --strategy orb --symbol SPY --tf 1m --from 2024-01-01 --to 2026-04-30 --config <yaml>` produces a `BacktestResult` row in DuckDB + equity-curve Parquet — Validated in Phase 3
 
 ### Parameter Optimization (OPT)
 
@@ -68,7 +68,7 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 
 ### Signal Pipeline (SP)
 
-- [ ] **SP-01**: asyncio pub/sub bus routes `Signal → RiskManager → Executor → Fill` with deterministic event ordering; signal queue is single-threaded to eliminate race between signal and risk-state read
+- [x] **SP-01**: asyncio pub/sub bus routes `Signal → RiskManager → Executor → Fill` with deterministic event ordering; signal queue is single-threaded to eliminate race between signal and risk-state read — Validated in Phase 3
 - [ ] **SP-02**: `RiskManager.check(signal, state)` is the **only** path from signal to fill; backdoors forbidden by lint; audit log captures every risk decision (approve / reject + reason code)
 - [ ] **SP-03**: Audit log: every event (bar tick, signal, risk decision, fill, position update, equity update, kill switch, flatten command) persisted synchronously to DuckDB **and** mirrored to a daily CSV; survives `kill -9` (no buffered writes)
 - [ ] **SP-04**: `Replay` command: re-feeds bars from DuckDB through the full pipeline; assertion that re-played audit log is byte-identical to the original
@@ -88,14 +88,14 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 
 ### Web App / UI (UI)
 
-- [ ] **UI-01**: FastAPI backend exposes REST + WebSocket endpoints: `GET /bars`, `GET /positions`, `GET /trades`, `GET /equity`, `GET /backtests`, `GET /optimizations`, `POST /backtests`, `POST /optimizations`, `POST /kill`, `POST /flatten`, `WS /stream`
+- [x] **UI-01**: FastAPI backend exposes REST + WebSocket endpoints: `GET /bars`, `GET /positions`, `GET /trades`, `GET /equity`, `GET /backtests`, `GET /optimizations`, `POST /backtests`, `POST /optimizations`, `POST /kill`, `POST /flatten`, `WS /stream` — Validated in Phase 3 (minimal surface: /bars, /backtests, /backtests/{id}/equity, /backtests/{id}/trades, WS /stream)
 - [ ] **UI-02**: WebSocket reconnect with exponential backoff + jitter; client maintains sequence cursor; gap detection triggers REST snapshot resync
 - [ ] **UI-03**: Next.js 16.2 + React 19 + TypeScript + dark monospace theme; multi-pane configurable grid layout (drag/resize panes); responsive only for desktop widths (no mobile breakpoint)
-- [ ] **UI-04**: **Chart panel**: TradingView Lightweight Charts (vanilla, mounted inside React `useEffect` — no wrapper); ES/SPY candles + ORB box overlay + signal markers (entry arrow + stop line + target line); `timeFormatter` + `tickMarkFormatter` configured to `America/New_York` (no browser-TZ drift)
+- [x] **UI-04**: **Chart panel**: TradingView Lightweight Charts (vanilla, mounted inside React `useEffect` — no wrapper); ES/SPY candles + ORB box overlay + signal markers (entry arrow + stop line + target line); `timeFormatter` + `tickMarkFormatter` configured to `America/New_York` (no browser-TZ drift) — Validated in Phase 3
 - [ ] **UI-05**: **Order blotter panel**: live table of open positions with avg fill price, current price, unrealized P&L, distance to stop (in $ and ticks), distance to target, time since entry
 - [ ] **UI-06**: **Trade history + equity curve panel**: closed-trades table (with side, entry, exit, gross PnL, fees, MAE, MFE, hold time, exit reason) + running equity curve overlayed with daily/cumulative-DD bars
 - [ ] **UI-07**: **Strategy controls + parameter panel**: toggle each registered strategy on/off (writes to `engine_state`), live-edit ORB params (writes to `orb.yaml` via API + hot-reload), button to fire a backtest with current params, optimization results browser with 2-param heatmap viewer
-- [ ] **UI-08**: ET clock always visible in the header; connection-status indicator (TV MCP / data feed / WebSocket) prominent with color-coded staleness ("last updated" timer turns yellow > 10s, red > 30s)
+- [x] **UI-08**: ET clock always visible in the header; connection-status indicator (TV MCP / data feed / WebSocket) prominent with color-coded staleness ("last updated" timer turns yellow > 10s, red > 30s) — Validated in Phase 3
 - [ ] **UI-09**: Hotkeys: `F` = flatten all (with confirmation), `K` = kill switch (with confirmation), `P` = pause active strategy, `?` = show shortcuts overlay; all hotkeys live in a single registry surfaced in the help overlay
 
 ### TradingView MCP Integration (TV)

@@ -24,7 +24,7 @@ A 9-phase plan (Phase 0 + Phases 1–8) that builds a single-operator intraday E
 Plans:
 - [x] 02-01-PLAN.md — Signal + StrategyContext models + look-ahead-safe indicators ATR/VWAP/EMA/ADR (Wave 1)
 - [x] 02-02-PLAN.md — ORBStrategy + YAML config + StrategyRegistry + acceptance tests (Wave 2)
-- [ ] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel
+- [x] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel (completed 2026-05-17)
 - [ ] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap
 - [ ] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel
 - [ ] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring
@@ -135,14 +135,14 @@ Plans:
 - This phase delivers the minimum `RiskManager` (pass-through, fixed 1 MES) and the minimum `PaperExecutor` (next-bar fill, slippage, EOD flat). The full Risk Manager ships in Phase 5; the `Protocol` seam is honored here so Phase 5 is a drop-in swap.
 - UI-01 here is the **minimal surface**: `/bars`, `/backtests`, `WS /stream`. The full endpoint set (`/positions`, `/trades`, `/equity`, `/optimizations`, `/kill`, `/flatten`) is completed in later phases when their respective subsystems land.
 
-**Plans:** 4/5 plans complete
+**Plans:** 5/5 plans complete
 
 Plans:
 - [x] 03-01-PLAN.md — D-10 minimal model fields + DuckDB backtests/trades tables + no-direct-vbt pre-commit hook + Wave 0 test stubs (Wave 1)
 - [x] 03-02-PLAN.md — safe_from_signals wrapper + PassThroughRiskManager + PaperExecutor (slippage, intrabar stop-first, EOD flatten) (Wave 2)
 - [x] 03-03-PLAN.md — BacktestEngine (driver loop + VBT metrics + MAE/MFE) + run_backtest.py CLI + BL-1 lookahead + reproducibility integration tests (Wave 3)
 - [x] 03-04-PLAN.md — FastAPI GET /bars + GET /backtests + WS /stream (7-topic asyncio.Queue fan-out) + CORS regression update (Wave 4)
-- [ ] 03-05-PLAN.md — Next.js /dashboard (two-pane chart + equity, ORB overlay, ET clock, connection-status, degradation banner) + GET /backtests/{run_id}/equity (Wave 5, includes human-verify checkpoint)
+- [x] 03-05-PLAN.md — Next.js /dashboard (two-pane chart + equity, ORB overlay, ET clock, connection-status, degradation banner) + GET /backtests/{run_id}/equity (Wave 5, includes human-verify checkpoint)
 
 ---
 
@@ -275,7 +275,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 0. Provider Validation Spike | 3/3 | Complete   | 2026-05-14 |
 | 1. Foundation + Data In | 6/6 | Complete   | 2026-05-15 |
 | 2. Strategy Engine + Indicators | 2/2 | Complete   | 2026-05-16 |
-| 3. Vertical MVP Slice + Backtester | 0/5 | Planned    | - |
+| 3. Vertical MVP Slice + Backtester | 5/5 | Complete   | 2026-05-17 |
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
 | 5. Risk Manager + Full Audit + Controls | 0/TBD | Not started | - |
 | 6. TradingView MCP Bridge | 0/TBD | Not started | - |
@@ -291,4 +291,4 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 - FND-08 has cross-phase aspects: the `runs` table and hash logging infrastructure is owned by Phase 1 (primary phase); the CI assertion test is introduced in Phase 3 and expanded in Phase 8 — captured in Cross-Phase Guardrails above.
 - MD-10 is owned by Phase 6 (not Phase 1) because daily TV↔Twelve-Data reconciliation requires the TV bridge to exist.
 
-*Last updated: 2026-05-16 — Phase 3 planned (5 plans across 5 waves; backtester + FastAPI surface + Next.js dashboard).*
+*Last updated: 2026-05-17 — Phase 3 complete (5/5 plans; integration gate passed: BacktestEngine + FastAPI REST+WS + Next.js dashboard all verified).*
