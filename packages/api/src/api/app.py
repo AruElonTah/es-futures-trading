@@ -31,6 +31,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 # Module-level Settings instantiation — proves the api -> trading-core
 # workspace dependency wires correctly (FND-01 success criterion #1).
@@ -103,6 +104,18 @@ def health() -> dict[str, str]:
         "version": app.version,
     }
 
+
+# CORS middleware — T-03-05-02: explicit allow list, NOT wildcard origin.
+# allow_credentials=False prevents cookie exfiltration from non-localhost tabs.
+# Single-operator localhost; no need for a wildcard. Phase 7 may extend for
+# multi-device or LAN access.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+    allow_credentials=False,
+)
 
 app.include_router(bars_routes.router)
 app.include_router(backtests_routes.router)

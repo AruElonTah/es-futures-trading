@@ -38,6 +38,7 @@ def make_test_app(duckdb_path: Path) -> FastAPI:
     Shared by test_routes.py and test_ws_stream.py. Exposes /bars,
     /backtests, and /stream so all route tests can use the same factory.
     """
+    from fastapi.middleware.cors import CORSMiddleware
     from trading_core.events import EventBus
     from trading_core.storage.duckdb_store import DuckDBStore
     from api.routes import bars as bars_routes, backtests as backtests_routes
@@ -64,6 +65,14 @@ def make_test_app(duckdb_path: Path) -> FastAPI:
         store.close()
 
     test_app = FastAPI(title="Test API", version="0.0.1", lifespan=_lifespan)
+    # Mirror app.py CORS config so TestCORS tests exercise real middleware (T-03-05-02)
+    test_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:3000"],
+        allow_methods=["GET"],
+        allow_headers=["*"],
+        allow_credentials=False,
+    )
     test_app.include_router(bars_routes.router)
     test_app.include_router(backtests_routes.router)
 
