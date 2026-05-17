@@ -42,6 +42,11 @@ function computeORB(
 ): { orbHigh: number | undefined; orbLow: number | undefined } {
   if (bars.length === 0) return { orbHigh: undefined, orbLow: undefined }
 
+  // API returns DESC; sort ASC so session-start scan works correctly
+  const sorted = [...bars].sort(
+    (a, b) => new Date(a.ts_utc).getTime() - new Date(b.ts_utc).getTime()
+  )
+
   // Find bars in the first 09:30-09:44 ET window (first ORB_MINUTES bars of RTH)
   // We identify session start by finding the first bar at 09:30 ET
   const etFormatter = new Intl.DateTimeFormat('en-US', {
@@ -53,8 +58,8 @@ function computeORB(
 
   // Find the first 09:30 bar
   let sessionStartIdx = -1
-  for (let i = 0; i < bars.length; i++) {
-    const ts = new Date(bars[i].ts_utc)
+  for (let i = 0; i < sorted.length; i++) {
+    const ts = new Date(sorted[i].ts_utc)
     const formatted = etFormatter.format(ts)
     if (formatted === '09:30') {
       sessionStartIdx = i
@@ -63,11 +68,10 @@ function computeORB(
   }
 
   if (sessionStartIdx === -1) {
-    // No 09:30 bar found — derive from first bar
     sessionStartIdx = 0
   }
 
-  const orbBars = bars.slice(sessionStartIdx, sessionStartIdx + ORB_MINUTES)
+  const orbBars = sorted.slice(sessionStartIdx, sessionStartIdx + ORB_MINUTES)
   if (orbBars.length === 0) return { orbHigh: undefined, orbLow: undefined }
 
   const orbHigh = Math.max(...orbBars.map((b) => b.high))

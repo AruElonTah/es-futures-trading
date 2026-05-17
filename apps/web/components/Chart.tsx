@@ -106,13 +106,16 @@ export default function Chart({
     )
 
     // Convert BarRow to lightweight-charts data format (Unix seconds UTC)
-    const chartData = bars.map((bar) => ({
-      time: Math.floor(new Date(bar.ts_utc).getTime() / 1000) as Time,
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-    }))
+    // API returns DESC (most-recent first); lightweight-charts requires ASC
+    const chartData = bars
+      .map((bar) => ({
+        time: Math.floor(new Date(bar.ts_utc).getTime() / 1000) as Time,
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+      }))
+      .sort((a, b) => (a.time as number) - (b.time as number))
     candleSeries.setData(chartData)
 
     // ORB price lines
