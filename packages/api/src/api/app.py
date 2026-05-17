@@ -1,20 +1,18 @@
-"""FastAPI application shell for the ES Futures Trading System (Phase 1).
+"""FastAPI application for the ES Futures Trading System.
 
-This module ships the **minimum** FastAPI surface that proves the
-`packages/api` workspace member is importable, depends correctly on
-`packages/trading-core`, and is ready for Phase 3 to add the real route
-surface (`/bars`, `/backtests`, `WS /stream`, etc. — UI-01).
+Phase 1 shipped only GET /health. Phase 3 (Plan 03-04) adds the full UI-01
+REST + WebSocket surface:
+  - GET /bars   — D-07 cold-load; most-recent N bars from DuckDB
+  - GET /backtests — D-01 backtest run listing
+  - WS /stream  — D-04/D-05/D-06 EventBus mirror with {type,payload} envelope
 
-Phase 1 contract:
-- exactly one operator route: ``GET /health``
-- module-level FastAPI app instance importable as ``api.app.app``
-- imports ``trading_core.config.Settings`` to prove the workspace
-  dependency wires correctly (FND-01 success criterion #1)
+Phase 1 contract (preserved):
+- ``GET /health`` returns the canonical body unchanged
+- Module-level ``_settings: Settings = Settings()`` proves the api -> trading-core
+  workspace dependency wires correctly (FND-01 success criterion #1)
 
-Adding ANY other endpoint here in Phase 1 is a regression — the
-``test_only_health_endpoint_registered`` test in
-``packages/api/tests/test_health.py`` will fail and so will the plan-level
-``grep -c '@app\\.'`` done-criterion. Real endpoints land in Phase 3.
+Adding any endpoint here in Phase 1 was a regression.
+Phase 3 adds /bars, /backtests, WS /stream as the UI-01 surface.
 
 Local sanity (NOT required by the test suite — TestClient covers the
 in-process path)::
@@ -22,29 +20,71 @@ in-process path)::
     uv run uvicorn api.app:app --host 127.0.0.1 --port 8000 --workers 1
     curl http://127.0.0.1:8000/health
     # -> {"status": "ok", "service": "es-api", "version": "0.1.0"}
+    curl "http://127.0.0.1:8000/bars?symbol=SPY&tf=1m&limit=10"
+    curl http://127.0.0.1:8000/backtests
 """
 
 from __future__ import annotations
 
-from fastapi import FastAPI
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 # Module-level Settings instantiation — proves the api -> trading-core
 # workspace dependency wires correctly (FND-01 success criterion #1).
-# Phase 3 will replace this top-level grab with a DI dependency on the
-# FastAPI app, but for Phase 1 the import alone is the proof we need.
 from trading_core.config import Settings
+from trading_core.events import EventBus
+from trading_core.storage.duckdb_store import DuckDBStore
+
+from api.routes import backtests as backtests_routes
+from api.routes import bars as bars_routes
+from api.ws import ConnectionManager
 
 __all__ = ["app"]
 
 _settings: Settings = Settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Manage DuckDBStore, EventBus, and ConnectionManager lifetime.
+
+    On startup:
+      - Open and schema-ensure the DuckDB database
+      - Create the in-process EventBus
+      - Create the ConnectionManager and start the background fan-out task
+
+    On shutdown:
+      - Cancel the fan-out task (raises CancelledError, caught cleanly)
+      - Close the DuckDB connection
+    """
+    app.state.store = DuckDBStore(_settings.duckdb_path)
+    app.state.store.ensure_schema()
+    app.state.bus = EventBus()
+    app.state.manager = ConnectionManager(app.state.bus)
+    app.state.fan_out_task = asyncio.create_task(
+        app.state.manager.start_background_fan_out()
+    )
+    yield
+    app.state.fan_out_task.cancel()
+    try:
+        await app.state.fan_out_task
+    except asyncio.CancelledError:
+        pass
+    app.state.store.close()
+
+
 app: FastAPI = FastAPI(
     title="ES Futures Trading System API",
     version="0.1.0",
     description=(
-        "Phase 1 shell. Only /health is exposed; Phase 3 adds /bars, "
-        "/backtests, WS /stream, and the rest of the UI-01 surface."
+        "Phase 3 surface: GET /bars (D-07 cold-load), GET /backtests (D-01), "
+        "WS /stream (D-04/D-05/D-06 EventBus mirror). "
+        "Phase 1 GET /health preserved."
     ),
+    lifespan=lifespan,
 )
 
 
@@ -62,3 +102,27 @@ def health() -> dict[str, str]:
         "service": "es-api",
         "version": app.version,
     }
+
+
+app.include_router(bars_routes.router)
+app.include_router(backtests_routes.router)
+
+
+@app.websocket("/stream")
+async def ws_stream(websocket: WebSocket) -> None:
+    """WebSocket endpoint — D-04/D-05/D-06 EventBus fan-out.
+
+    On connect: allocate a per-client asyncio.Queue via ConnectionManager.
+    Main loop: drain the queue and forward JSON messages to the client.
+    On disconnect (WebSocketDisconnect): remove the queue and exit cleanly.
+    """
+    manager: ConnectionManager = websocket.app.state.manager
+    q = await manager.connect(websocket)
+    try:
+        while True:
+            msg = await q.get()
+            await websocket.send_text(msg)
+    except WebSocketDisconnect:
+        pass
+    finally:
+        manager.disconnect(q)

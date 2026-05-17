@@ -5,6 +5,10 @@ works end-to-end and that the `/health` endpoint is the ONLY route registered
 on the Phase 1 shell. Phase 3 owns the real surface (/bars, /backtests,
 WS /stream, etc.) — this test guards against accidentally registering more
 endpoints than allowed in Phase 1.
+
+# Plan 03-04 expanded the Phase 1 surface — see 03-04-PLAN.md Task 1.
+# test_only_health_endpoint_registered has been renamed to
+# test_phase3_endpoints_registered and updated to accept the Phase 3 routes.
 """
 
 from __future__ import annotations
@@ -37,11 +41,15 @@ def test_app_is_a_fastapi_instance() -> None:
     assert type(app).__name__ == "FastAPI"
 
 
-def test_only_health_endpoint_registered() -> None:
-    """T-01-06-01 mitigation: Phase 1 ships ONLY /health.
+def test_phase3_endpoints_registered() -> None:
+    """Phase 1 → Phase 3 deviation: guard that EXACTLY the expected routes exist.
 
-    Phase 3 owns /bars, /backtests, WS /stream. Adding a second app.get/post
-    here in Phase 1 is a regression — guard with this test.
+    Phase 1 shipped only /health. Plan 03-04 adds /bars, /backtests, and
+    WS /stream. This test is renamed from test_only_health_endpoint_registered
+    (Plan 01-06) — the intent (guard against unexpected endpoints) is
+    preserved; the assertion is updated for the Phase 3 surface.
+
+    # Plan 03-04 expanded the Phase 1 surface — see 03-04-PLAN.md Task 1.
     """
     from api.app import app
 
@@ -62,8 +70,10 @@ def test_only_health_endpoint_registered() -> None:
             and getattr(route, "path", None) not in DEFAULT_FASTAPI_PATHS
         }
     )
-    assert user_paths == ["/health"], (
-        f"Phase 1 shell must expose ONLY /health; found: {user_paths}"
+    # Phase 3 surface: /backtests, /bars, /health, /stream (WS)
+    assert user_paths == ["/backtests", "/bars", "/health", "/stream"], (
+        f"Phase 3 app must expose exactly /backtests, /bars, /health, /stream; "
+        f"found: {user_paths}"
     )
 
 
