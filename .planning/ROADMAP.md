@@ -138,7 +138,7 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — D-10 minimal model fields + DuckDB backtests/trades tables + no-direct-vbt pre-commit hook + Wave 0 test stubs (Wave 1)
+- [x] 03-01-PLAN.md — D-10 minimal model fields + DuckDB backtests/trades tables + no-direct-vbt pre-commit hook + Wave 0 test stubs (Wave 1)
 - [ ] 03-02-PLAN.md — safe_from_signals wrapper + PassThroughRiskManager + PaperExecutor (slippage, intrabar stop-first, EOD flatten) (Wave 2)
 - [ ] 03-03-PLAN.md — BacktestEngine (driver loop + VBT metrics + MAE/MFE) + run_backtest.py CLI + BL-1 lookahead + reproducibility integration tests (Wave 3)
 - [ ] 03-04-PLAN.md — FastAPI GET /bars + GET /backtests + WS /stream (7-topic asyncio.Queue fan-out) + CORS regression update (Wave 4)
