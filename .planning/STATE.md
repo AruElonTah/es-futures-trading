@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: Phase 1 closed; ready for Phase 2 (Strategy Engine + Indicators)
 stopped_at: context exhaustion at 75% (2026-05-17)
-last_updated: "2026-05-17T04:28:47.584Z"
-last_activity: 2026-05-15
+last_updated: "2026-05-17T05:30:00.000Z"
+last_activity: 2026-05-17
 progress:
   total_phases: 9
   completed_phases: 3
   total_plans: 16
-  completed_plans: 12
+  completed_plans: 13
   percent: 33
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 ## Current Position
 
 Phase: 03 (vertical-mvp-slice-backtester) — IN PROGRESS
-Plan: 3 of 5 — Wave 3 complete
-Status: 03-03 complete (BacktestEngine, run_backtest.py CLI, BL-1 lookahead gate, FND-08 reproducibility); Wave 4 (03-04 FastAPI REST+WS) is next
+Plan: 4 of 5 — Wave 4 complete
+Status: 03-04 complete (GET /bars, GET /backtests, WS /stream 7-topic asyncio.Queue fan-out, ConnectionManager, deps.py, lifespan, Pydantic Query validation, 23 new API tests); Wave 5 (03-05 Next.js /dashboard) is next
 Last activity: 2026-05-16
 
 Progress: [██████████] 100%
