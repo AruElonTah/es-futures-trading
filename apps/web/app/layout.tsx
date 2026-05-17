@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import QueryProvider from "@/components/QueryProvider";
 
 export const metadata: Metadata = {
   title: "ES Futures Trading System",
-  description: "Phase 1 foundation scaffold.",
+  description: "Phase 3 — Bloomberg-style trading dashboard.",
 };
 
 export default function RootLayout({
@@ -13,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col font-mono">
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }

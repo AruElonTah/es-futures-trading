@@ -70,9 +70,19 @@ def test_phase3_endpoints_registered() -> None:
             and getattr(route, "path", None) not in DEFAULT_FASTAPI_PATHS
         }
     )
-    # Phase 3 surface: /backtests, /bars, /health, /stream (WS)
-    assert user_paths == ["/backtests", "/bars", "/health", "/stream"], (
-        f"Phase 3 app must expose exactly /backtests, /bars, /health, /stream; "
+    # Phase 3 surface (Plan 03-04 + Plan 03-05):
+    #   /backtests, /backtests/{run_id}/equity, /backtests/{run_id}/trades,
+    #   /bars, /health, /stream (WS)
+    expected = sorted([
+        "/backtests",
+        "/backtests/{run_id}/equity",
+        "/backtests/{run_id}/trades",
+        "/bars",
+        "/health",
+        "/stream",
+    ])
+    assert user_paths == expected, (
+        f"Phase 3 app must expose exactly {expected}; "
         f"found: {user_paths}"
     )
 
