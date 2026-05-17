@@ -76,7 +76,7 @@ def tmp_duckdb_path(tmp_path: Path) -> Path:
 
 
 class TestEnsureSchema:
-    def test_creates_all_four_tables(self, tmp_duckdb_path: Path) -> None:
+    def test_creates_all_tables(self, tmp_duckdb_path: Path) -> None:
         store = DuckDBStore(tmp_duckdb_path)
         store.ensure_schema()
         try:
@@ -89,7 +89,11 @@ class TestEnsureSchema:
             }
         finally:
             store.close()
-        assert tables == {"bars", "bar_gaps", "instruments", "runs"}
+        # Phase 1 tables: bars, bar_gaps, instruments, runs
+        # Phase 3 Plan 01 (D-01/D-02): backtests, trades
+        assert {"bars", "bar_gaps", "instruments", "runs"}.issubset(tables)
+        assert "backtests" in tables, "backtests table missing (Phase 3 D-01)"
+        assert "trades" in tables, "trades table missing (Phase 3 D-02)"
 
     def test_bars_has_composite_pk(self, tmp_duckdb_path: Path) -> None:
         with DuckDBStore(tmp_duckdb_path) as store:

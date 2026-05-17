@@ -45,3 +45,58 @@ CREATE TABLE IF NOT EXISTS runs (
     status      VARCHAR     NOT NULL,    -- 'ok' | 'failed' | 'partial'
     notes       VARCHAR     NOT NULL DEFAULT ''
 );
+
+-- D-01: Backtest run summary table (Phase 3 Plan 01).
+-- One row per BacktestEngine run. run_id is a soft FK to runs.run_id.
+-- Plain INSERT only — run_id (uuid7) is unique per run; no upsert needed.
+CREATE TABLE IF NOT EXISTS backtests (
+    run_id               VARCHAR     NOT NULL,   -- soft FK to runs.run_id
+    strategy_id          VARCHAR     NOT NULL,
+    symbol               VARCHAR     NOT NULL,
+    timeframe            VARCHAR     NOT NULL,
+    from_ts              TIMESTAMPTZ NOT NULL,
+    to_ts                TIMESTAMPTZ NOT NULL,
+    param_hash           VARCHAR     NOT NULL,
+    equity_curve_path    VARCHAR     NOT NULL,   -- relative path to equity Parquet (D-03)
+    -- Scalar metrics (all nullable — failed runs may not produce metrics)
+    total_return         DOUBLE,
+    cagr                 DOUBLE,
+    sharpe               DOUBLE,
+    sortino              DOUBLE,
+    calmar               DOUBLE,
+    max_dd               DOUBLE,
+    max_dd_duration_bars BIGINT,
+    win_rate             DOUBLE,
+    expectancy           DOUBLE,
+    profit_factor        DOUBLE,
+    trade_count          INTEGER,
+    avg_hold_bars        DOUBLE,
+    created_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (run_id)
+);
+
+-- D-02: Per-trade attribution table (Phase 3 Plan 01).
+-- Full attribution chain: signal → fill → trade row. D-11 exit_reason four-value Literal.
+-- stop_price and target_price are nullable — non-ORB strategies may not emit stop/target.
+-- Plain INSERT only — trade_id (uuid7) is unique per trade; no upsert needed.
+CREATE TABLE IF NOT EXISTS trades (
+    trade_id         VARCHAR     NOT NULL,   -- uuid7
+    run_id           VARCHAR     NOT NULL,   -- soft FK to runs.run_id
+    signal_id        VARCHAR     NOT NULL,   -- FK to Signal.signal_id
+    strategy_id      VARCHAR     NOT NULL,
+    side             VARCHAR     NOT NULL,   -- 'long' | 'short'
+    entry_price      DOUBLE      NOT NULL,
+    exit_price       DOUBLE      NOT NULL,
+    exit_reason      VARCHAR     NOT NULL,   -- 'target'|'stop'|'eod_flat'|'manual' (D-11)
+    entry_ts_utc     TIMESTAMPTZ NOT NULL,
+    exit_ts_utc      TIMESTAMPTZ NOT NULL,
+    pnl              DOUBLE      NOT NULL,
+    size             INTEGER     NOT NULL,
+    slippage_ticks   INTEGER     NOT NULL,
+    mae              DOUBLE      NOT NULL,
+    mfe              DOUBLE      NOT NULL,
+    stop_price       DOUBLE,                 -- nullable: ORB-sourced; NULL for non-ORB
+    target_price     DOUBLE,                 -- nullable: ORB-sourced; NULL for non-ORB
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (trade_id)
+);

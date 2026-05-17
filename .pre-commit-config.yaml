@@ -32,3 +32,21 @@ repos:
           (?x)^(
             packages/trading-core/tests/fixtures/bad_naive_datetime\.py
           )$
+      - id: no-direct-vbt-from-signals
+        name: Block direct vbt.Portfolio.from_signals() calls (D-13)
+        entry: python scripts/hooks/no_direct_vbt.py
+        language: python
+        types: [python]
+        require_serial: true
+        # Excluded files:
+        #   safe_signals.py — the only legitimate call site (the wrapper itself)
+        #   no_direct_vbt.py — contains the pattern as a regex string literal
+        #   test_safe_signals.py — may reference the literal in error-message assertions
+        #   test_lookahead.py — integration test for BL-1; references the wrapper API
+        exclude: |
+          (?x)^(
+            packages/trading-core/src/trading_core/backtest/safe_signals\.py|
+            scripts/hooks/no_direct_vbt\.py|
+            packages/trading-core/tests/test_safe_signals\.py|
+            packages/trading-core/tests/integration/test_lookahead\.py
+          )$
