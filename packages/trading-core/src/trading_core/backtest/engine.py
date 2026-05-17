@@ -180,6 +180,7 @@ class BacktestEngine:
 
         # Driver loop state
         open_position: dict | None = None
+        realized_equity: float = init_cash  # accumulates closed-trade PnL (CR-002)
 
         self._log.info(
             "engine.run.start",
@@ -298,14 +299,13 @@ class BacktestEngine:
                     trades.append(trade_dict)
 
                     # Update equity_per_bar at exit bar with realized PnL
-                    prev_equity = equity_per_bar[i - 1] if i > 0 else init_cash
-                    equity_per_bar[i] = prev_equity + pnl
+                    realized_equity += pnl
+                    equity_per_bar[i] = realized_equity
 
                     exits_bool[i] = True
                     open_position = None
                 else:
                     # Unrealized P&L update
-                    prev_equity = equity_per_bar[i - 1] if i > 0 else init_cash
                     if sig.side == "long":
                         unrealized = float(
                             (bar.close - ef.fill_price) * Decimal(fill_qty) * point_value
@@ -314,7 +314,7 @@ class BacktestEngine:
                         unrealized = float(
                             (ef.fill_price - bar.close) * Decimal(fill_qty) * point_value
                         )
-                    equity_per_bar[i] = init_cash + unrealized
+                    equity_per_bar[i] = realized_equity + unrealized
             else:
                 # No open position — equity stays at previous value (or init_cash)
                 if i > 0:
