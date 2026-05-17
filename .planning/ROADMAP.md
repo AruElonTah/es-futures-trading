@@ -1,4 +1,4 @@
-# Roadmap: ES Futures Trading System
+﻿# Roadmap: ES Futures Trading System
 
 **Defined:** 2026-05-14
 **Granularity:** standard
@@ -164,6 +164,13 @@ Plans:
 - The pre-run ADR gate (OPT-04 / BL-4) is the single most important Phase 4 invariant. Without it, every optimization is meta-overfitting waiting to happen.
 - Workers must only import `trading-core` (not `api` or `tv-bridge`) — Anti-Pattern 5 from ARCHITECTURE.md.
 - Walk-forward warmup uses bars from *before* the IS window — never spans into OOS (BL-4).
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — DuckDB schema extensions (opt_runs/opt_results/holdout_burns) + OptSpace model + orb.optspace.yaml + fold splitter + Wave 0 test stubs (Wave 1)
+- [ ] 04-02-PLAN.md — run_combo worker module + run_opt.py CLI with ADR gate, holdout guard, ProcessPoolExecutor dispatch and aggregation (Wave 2)
+- [ ] 04-03-PLAN.md — FastAPI /optimizations routes + Next.js /optimizations leaderboard + Plotly heatmap + dashboard header link (Wave 3)
 
 ---
 
