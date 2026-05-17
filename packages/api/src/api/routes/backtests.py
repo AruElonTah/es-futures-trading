@@ -158,10 +158,12 @@ def get_backtest_equity(
 
     # Step 4: read via DuckDB's native Parquet reader
     # Column aliases: equity_$ → equity, drawdown_$ → drawdown
+    # Use parameterized $1 binding to prevent SQL injection via path (CR-003).
     parquet_path_str = str(abs_path).replace("\\", "/")
     equity_rows = store._conn.execute(
-        f'SELECT ts_utc, "equity_$" AS equity, "drawdown_$" AS drawdown '
-        f"FROM read_parquet('{parquet_path_str}') ORDER BY ts_utc ASC"
+        'SELECT ts_utc, "equity_$" AS equity, "drawdown_$" AS drawdown '
+        "FROM read_parquet($1) ORDER BY ts_utc ASC",
+        [parquet_path_str],
     ).fetchall()
 
     result: list[dict] = []
