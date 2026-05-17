@@ -82,7 +82,7 @@ metrics:
 
 # Phase 03 Plan 05: Next.js Dashboard Summary
 
-**One-liner:** FastAPI equity/trades JSON endpoints with path-traversal guard + CORSMiddleware, and a Next.js /dashboard with lightweight-charts v5 candles + ORB overlay + equity curve + ET clock + WS connection status + degradation banner (Tasks 1+2 complete, Task 3 checkpoint-pending).
+**One-liner:** FastAPI equity/trades JSON endpoints with path-traversal guard + CORSMiddleware, and a Next.js /dashboard with lightweight-charts v5 candles + ORB overlay + equity curve + ET clock + WS connection status + degradation banner — all 3 tasks complete, visual checkpoint approved by operator.
 
 ## Tasks Completed
 
@@ -91,7 +91,7 @@ metrics:
 | 1 RED | Failing tests for equity/trades/CORS endpoints | c675a15 | test_routes.py |
 | 1 GREEN | GET /backtests/{run_id}/equity + trades + CORS middleware | 24b114c | backtests.py, app.py, conftest.py |
 | 2 GREEN | Next.js dashboard — hooks, store, chart components | aa640fc | 15 frontend files + test_health.py |
-| 3 | Visual + Functional Verification | ⏸ checkpoint-pending | — |
+| 3 | Visual + Functional Verification | ✓ Approved by operator | — |
 
 ## Next.js Docs Consulted
 
