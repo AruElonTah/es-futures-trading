@@ -61,9 +61,9 @@ def main(argv: list[str]) -> int:
                 )
     if errors:
         print("\n".join(errors))
-        sys.exit(1)
-    sys.exit(0)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    sys.exit(main(sys.argv))
