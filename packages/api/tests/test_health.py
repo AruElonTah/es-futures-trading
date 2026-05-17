@@ -42,14 +42,16 @@ def test_app_is_a_fastapi_instance() -> None:
 
 
 def test_phase3_endpoints_registered() -> None:
-    """Phase 1 → Phase 3 deviation: guard that EXACTLY the expected routes exist.
+    """Phase 1 → Phase 3 → Phase 4 surface guard: EXACTLY the expected routes.
 
     Phase 1 shipped only /health. Plan 03-04 adds /bars, /backtests, and
-    WS /stream. This test is renamed from test_only_health_endpoint_registered
+    WS /stream. Plan 04-03 adds /optimizations routes.
+    This test is renamed from test_only_health_endpoint_registered
     (Plan 01-06) — the intent (guard against unexpected endpoints) is
-    preserved; the assertion is updated for the Phase 3 surface.
+    preserved; the assertion is updated for the Phase 4 surface.
 
     # Plan 03-04 expanded the Phase 1 surface — see 03-04-PLAN.md Task 1.
+    # Plan 04-03 adds /optimizations surface — see 04-03-PLAN.md Task 1.
     """
     from api.app import app
 
@@ -70,9 +72,11 @@ def test_phase3_endpoints_registered() -> None:
             and getattr(route, "path", None) not in DEFAULT_FASTAPI_PATHS
         }
     )
-    # Phase 3 surface (Plan 03-04 + Plan 03-05):
+    # Phase 4 surface (Plan 03-04 + Plan 03-05 + Plan 04-03):
     #   /backtests, /backtests/{run_id}/equity, /backtests/{run_id}/trades,
-    #   /bars, /health, /stream (WS)
+    #   /bars, /health, /stream (WS),
+    #   /optimizations, /optimizations/{run_id}, /optimizations/{run_id}/results,
+    #   /optimizations/{run_id}/heatmap
     expected = sorted([
         "/backtests",
         "/backtests/{run_id}/equity",
@@ -80,9 +84,13 @@ def test_phase3_endpoints_registered() -> None:
         "/bars",
         "/health",
         "/stream",
+        "/optimizations",
+        "/optimizations/{run_id}",
+        "/optimizations/{run_id}/results",
+        "/optimizations/{run_id}/heatmap",
     ])
     assert user_paths == expected, (
-        f"Phase 3 app must expose exactly {expected}; "
+        f"Phase 4 app must expose exactly {expected}; "
         f"found: {user_paths}"
     )
 

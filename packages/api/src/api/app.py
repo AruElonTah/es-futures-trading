@@ -41,6 +41,7 @@ from trading_core.storage.duckdb_store import DuckDBStore
 
 from api.routes import backtests as backtests_routes
 from api.routes import bars as bars_routes
+from api.routes import optimizations as optimizations_routes
 from api.ws import ConnectionManager
 
 __all__ = ["app"]
@@ -119,6 +120,7 @@ app.add_middleware(
 
 app.include_router(bars_routes.router)
 app.include_router(backtests_routes.router)
+app.include_router(optimizations_routes.router)
 
 
 @app.websocket("/stream")
