@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 
 ## Current Position
 
-Phase: 01 (foundation-data-in) — COMPLETE
-Plan: 6 of 6 — complete
-Status: Phase 1 closed; ready for Phase 2 (Strategy Engine + Indicators)
-Last activity: 2026-05-15
+Phase: 03 (vertical-mvp-slice-backtester) — IN PROGRESS
+Plan: 2 of 5 — Wave 2 complete
+Status: 03-02 complete (safe_from_signals, PassThroughRiskManager, PaperExecutor); Wave 3 (03-03 BacktestEngine) is next
+Last activity: 2026-05-17
 
 Progress: [██████████] 100%
 
