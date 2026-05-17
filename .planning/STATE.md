@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-05-14)
 ## Current Position
 
 Phase: 03 (vertical-mvp-slice-backtester) — IN PROGRESS
-Plan: 2 of 5 — Wave 2 complete
-Status: 03-02 complete (safe_from_signals, PassThroughRiskManager, PaperExecutor); Wave 3 (03-03 BacktestEngine) is next
-Last activity: 2026-05-17
+Plan: 3 of 5 — Wave 3 complete
+Status: 03-03 complete (BacktestEngine, run_backtest.py CLI, BL-1 lookahead gate, FND-08 reproducibility); Wave 4 (03-04 FastAPI REST+WS) is next
+Last activity: 2026-05-16
 
 Progress: [██████████] 100%
 
