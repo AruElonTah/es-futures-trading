@@ -100,3 +100,49 @@ CREATE TABLE IF NOT EXISTS trades (
     created_at       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (trade_id)
 );
+
+-- Phase 4: Optimization grid + walk-forward tables (D-13).
+-- All three tables use IF NOT EXISTS for idempotent schema application.
+
+CREATE TABLE IF NOT EXISTS opt_runs (
+    run_id            VARCHAR     PRIMARY KEY,  -- uuid7 (time-sortable)
+    strategy_id       VARCHAR     NOT NULL,
+    adr_hash          VARCHAR     NOT NULL,     -- SHA256 of opt-*.md ADR file
+    param_grid_hash   VARCHAR     NOT NULL,     -- SHA256 of optspace.yaml param values
+    is_window_months  INTEGER     NOT NULL,     -- e.g., 6
+    oos_window_months INTEGER     NOT NULL,     -- e.g., 1
+    step_months       INTEGER     NOT NULL,     -- e.g., 1
+    seed              INTEGER     NOT NULL,
+    fold_count        INTEGER     NOT NULL DEFAULT 0,
+    completed_combos  INTEGER     NOT NULL DEFAULT 0,
+    total_combos      INTEGER     NOT NULL DEFAULT 0,
+    status            VARCHAR     NOT NULL,     -- 'running'|'complete'|'failed'
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS opt_results (
+    result_id             VARCHAR     PRIMARY KEY,  -- uuid7
+    run_id                VARCHAR     NOT NULL,     -- soft FK to opt_runs.run_id
+    fold_idx              INTEGER     NOT NULL,
+    param_hash            VARCHAR     NOT NULL,
+    opening_range_minutes INTEGER     NOT NULL,
+    atr_stop_mult         DOUBLE      NOT NULL,
+    r_target              DOUBLE      NOT NULL,
+    is_sharpe             DOUBLE,
+    oos_sharpe            DOUBLE,
+    is_return             DOUBLE,
+    oos_return            DOUBLE,
+    edge_ratio            DOUBLE,                   -- is_sharpe / oos_sharpe; NULL if oos_sharpe=0
+    equity_curve_path     VARCHAR,
+    git_sha               VARCHAR     NOT NULL,
+    data_hash             VARCHAR     NOT NULL,
+    seed                  INTEGER     NOT NULL,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS holdout_burns (
+    burn_id    VARCHAR     PRIMARY KEY,   -- uuid7
+    run_id     VARCHAR     NOT NULL,      -- soft FK to opt_runs.run_id
+    burned_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    quarter    VARCHAR     NOT NULL       -- e.g., '2026Q2' (YYYYQ format)
+);

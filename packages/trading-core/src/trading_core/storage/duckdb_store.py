@@ -92,6 +92,32 @@ INSERT INTO trades (trade_id, run_id, signal_id, strategy_id, side, entry_price,
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 """
 
+# Phase 4: Optimization grid + walk-forward SQL constants (D-13).
+
+WRITE_OPT_RUN_SQL = """
+INSERT INTO opt_runs (run_id, strategy_id, adr_hash, param_grid_hash,
+    is_window_months, oos_window_months, step_months, seed,
+    fold_count, completed_combos, total_combos, status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+"""
+
+WRITE_OPT_RESULT_SQL = """
+INSERT INTO opt_results (result_id, run_id, fold_idx, param_hash,
+    opening_range_minutes, atr_stop_mult, r_target,
+    is_sharpe, oos_sharpe, is_return, oos_return, edge_ratio,
+    equity_curve_path, git_sha, data_hash, seed)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+"""
+
+WRITE_HOLDOUT_BURN_SQL = """
+INSERT INTO holdout_burns (burn_id, run_id, quarter)
+VALUES (?, ?, ?);
+"""
+
+CHECK_HOLDOUT_QUOTA_SQL = """
+SELECT COUNT(*) FROM holdout_burns WHERE quarter = ?;
+"""
+
 
 class DuckDBStore:
     """Owns a DuckDB connection and the bar/run persistence surface.
@@ -374,6 +400,125 @@ class DuckDBStore:
             """,
             [symbol, start_utc, end_utc],
         )
+
+    # ---- optimization run writers (Phase 4) --------------------------------
+
+    def write_opt_run(
+        self,
+        *,
+        run_id: str,
+        strategy_id: str,
+        adr_hash: str,
+        param_grid_hash: str,
+        is_window_months: int,
+        oos_window_months: int,
+        step_months: int,
+        seed: int,
+        fold_count: int = 0,
+        completed_combos: int = 0,
+        total_combos: int = 0,
+        status: str,
+    ) -> None:
+        """Persist a single ``opt_runs`` row.
+
+        Plain INSERT — run_id (uuid7) is unique per optimization run;
+        no upsert needed.
+        """
+        self._conn.execute(
+            WRITE_OPT_RUN_SQL,
+            [
+                run_id,
+                strategy_id,
+                adr_hash,
+                param_grid_hash,
+                int(is_window_months),
+                int(oos_window_months),
+                int(step_months),
+                int(seed),
+                int(fold_count),
+                int(completed_combos),
+                int(total_combos),
+                status,
+            ],
+        )
+
+    def write_opt_results(self, rows: list[dict]) -> int:
+        """Persist a batch of ``opt_results`` rows.
+
+        Args:
+            rows: List of dicts with D-13 keys. ``is_sharpe``, ``oos_sharpe``,
+                ``is_return``, ``oos_return``, ``edge_ratio``,
+                ``equity_curve_path`` are nullable.
+
+        Returns:
+            Number of rows inserted. Zero when ``rows`` is empty.
+        """
+        if not rows:
+            return 0
+        tuples: list[tuple[Any, ...]] = [
+            (
+                r["result_id"],
+                r["run_id"],
+                int(r["fold_idx"]),
+                r["param_hash"],
+                int(r["opening_range_minutes"]),
+                float(r["atr_stop_mult"]),
+                float(r["r_target"]),
+                float(r["is_sharpe"]) if r.get("is_sharpe") is not None else None,
+                float(r["oos_sharpe"]) if r.get("oos_sharpe") is not None else None,
+                float(r["is_return"]) if r.get("is_return") is not None else None,
+                float(r["oos_return"]) if r.get("oos_return") is not None else None,
+                float(r["edge_ratio"]) if r.get("edge_ratio") is not None else None,
+                r.get("equity_curve_path"),
+                r["git_sha"],
+                r["data_hash"],
+                int(r["seed"]),
+            )
+            for r in rows
+        ]
+        self._conn.executemany(WRITE_OPT_RESULT_SQL, tuples)
+        return len(rows)
+
+    def write_holdout_burn(
+        self, *, burn_id: str, run_id: str, quarter: str
+    ) -> None:
+        """Persist a single ``holdout_burns`` row.
+
+        The ``quarter`` string is computed in Python by the caller (e.g.,
+        ``current_quarter_str()``) — it is never derived from user input,
+        satisfying T-04-01-02 (tamper-resistant quarter string).
+        """
+        self._conn.execute(WRITE_HOLDOUT_BURN_SQL, [burn_id, run_id, quarter])
+
+    def check_holdout_quota(self, quarter: str) -> bool:
+        """Return True if a holdout burn is ALLOWED for ``quarter``.
+
+        OPT-08: at most 3 burns per calendar quarter. Returns False when
+        COUNT(*) >= 3 (the 4th burn is refused).
+        """
+        count: int = self._conn.execute(
+            CHECK_HOLDOUT_QUOTA_SQL, [quarter]
+        ).fetchone()[0]
+        return count < 3
+
+    def read_opt_results(self, run_id: str) -> list[dict]:
+        """Return all ``opt_results`` rows for ``run_id``, sorted by OOS Sharpe DESC.
+
+        Returns:
+            List of dicts keyed by column name, ordered by
+            ``oos_sharpe DESC NULLS LAST``.
+        """
+        cursor = self._conn.execute(
+            "SELECT result_id, run_id, fold_idx, param_hash, "
+            "opening_range_minutes, atr_stop_mult, r_target, "
+            "is_sharpe, oos_sharpe, is_return, oos_return, edge_ratio, "
+            "equity_curve_path, git_sha, data_hash, seed, created_at "
+            "FROM opt_results WHERE run_id = ? "
+            "ORDER BY oos_sharpe DESC NULLS LAST",
+            [run_id],
+        )
+        columns = [desc[0] for desc in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
     # ---- context manager + close -----------------------------------------
 
