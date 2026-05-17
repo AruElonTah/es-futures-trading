@@ -156,8 +156,8 @@ export default function DashboardPage() {
         </button>
       </header>
 
-      {/* Chart pane — 70% height (D-08) */}
-      <div style={{ flex: '0 0 70%', overflow: 'hidden' }}>
+      {/* Chart pane — 70% of remaining height after header (D-08) */}
+      <div style={{ flex: '7 1 0', overflow: 'hidden', minHeight: 0 }}>
         <Chart
           bars={bars ?? []}
           orbHigh={orbHigh}
@@ -166,8 +166,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Equity curve pane — 30% height (D-08) */}
-      <div style={{ flex: '0 0 30%', overflow: 'hidden' }}>
+      {/* Equity curve pane — 30% of remaining height after header (D-08) */}
+      <div style={{ flex: '3 1 0', overflow: 'hidden', minHeight: 0 }}>
         <EquityCurve points={equityPoints ?? []} />
       </div>
     </div>

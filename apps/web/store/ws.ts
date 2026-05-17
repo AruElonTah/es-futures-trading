@@ -59,7 +59,7 @@ export function selectStatusColor(
   state: Pick<WsState, 'connected' | 'lastBarAt'>
 ): 'green' | 'yellow' | 'red' {
   if (!state.connected) return 'red'
-  if (state.lastBarAt == null) return 'red'
+  if (state.lastBarAt == null) return 'green'   // connected but no live bars yet
   const age = Date.now() - state.lastBarAt
   if (age > 30_000) return 'red'
   if (age > 10_000) return 'yellow'
