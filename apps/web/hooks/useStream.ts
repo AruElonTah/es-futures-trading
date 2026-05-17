@@ -37,27 +37,30 @@ export function useStream() {
     }
 
     ws.onmessage = (event: MessageEvent) => {
+      // Narrow the catch to JSON parse errors only; handler errors surface normally (WR-002).
+      let msg: { type: string; payload: Record<string, unknown> }
       try {
-        const msg = JSON.parse(event.data as string) as {
+        msg = JSON.parse(event.data as string) as {
           type: string
           payload: Record<string, unknown>
         }
-        switch (msg.type) {
-          case 'bars':
-            setLastBarAt(Date.now())
-            break
-          case 'degraded_state':
-            setDegraded({
-              source: (msg.payload.source as string) ?? 'unknown',
-              reason: (msg.payload.reason as string) ?? '',
-            })
-            break
-          default:
-            // TODO (Phase 7): route fills, positions, equity, signals to queryClient
-            break
-        }
       } catch {
-        // Malformed JSON — ignore silently
+        return  // Malformed JSON — skip
+      }
+      // Message routing outside the try block so real handler errors surface
+      switch (msg.type) {
+        case 'bars':
+          setLastBarAt(Date.now())
+          break
+        case 'degraded_state':
+          setDegraded({
+            source: (msg.payload.source as string) ?? 'unknown',
+            reason: (msg.payload.reason as string) ?? '',
+          })
+          break
+        default:
+          // TODO (Phase 7): route fills, positions, equity, signals to queryClient
+          break
       }
     }
 
