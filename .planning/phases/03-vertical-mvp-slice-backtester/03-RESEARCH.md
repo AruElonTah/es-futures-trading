@@ -19,7 +19,7 @@
 - **D-06:** In-process asyncio.Queue fan-out — no extra dependencies.
 - **D-07:** Cold-load state = most recent RTH bars in DuckDB, no overlays.
 - **D-08:** Two-pane layout — chart (top ~70%) + equity curve (bottom ~30%).
-- **D-09:** ORB overlays use primitive types — `createPriceLine()` + `setMarkers()`.
+- **D-09:** ORB overlays use primitive types — `createPriceLine()` + `createSeriesMarkers(series, markers_array)` (named import from 'lightweight-charts'). NOTE: `series.setMarkers()` was removed in v5.2.0; use `createSeriesMarkers` instead (Pitfall 2).
 - **D-10:** Minimal fields on existing stubs: `RiskDecision.approved/reason/adjusted_size`, `Fill.signal_id/fill_price/fill_qty/side/slippage_ticks/ts_utc/exit_reason`, `RiskState.realized_pnl_today`, `RiskConfig.max_contracts=1`.
 - **D-11:** `exit_reason` four-value Literal: `target|stop|eod_flat|manual`.
 - **D-12:** Stop-first intrabar conflict resolution.
@@ -1202,22 +1202,25 @@ export function useStream(url: string) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Planner decision: off-peak slippage default**
    - CONTEXT.md Specifics says 0.5 ticks off-peak is "reasonable"
    - Research uses 1 tick (integer; 0.5 ticks is half a tick, needs rounding)
    - Recommendation: planner should lock either 0.5 (round up to 1 on odd lots) or 1 tick as the integer default
+   - **RESOLVED:** 1 tick off-peak per Plan 02 PaperExecutor action
 
 2. **BacktestEngine architecture: hybrid vs pure driver loop**
    - Hybrid (driver loop for attribution + VBT for metrics): cleaner separation, requires `entries`/`exits` boolean arrays to feed VBT in addition to the driver loop state
    - Pure driver loop (no VBT at all): simpler code, but must hand-roll Sharpe/Sortino/Calmar — contradicts "don't hand-roll" principle
    - Recommendation: hybrid — use the driver loop for D-02 attribution chain (exit_reason, MAE, MFE) and VBT for portfolio-level metrics. The `safe_from_signals` wrapper is still used and tested (satisfies BT-02/BT-07), just not as the primary fill simulation engine.
+   - **RESOLVED:** Hybrid driver loop per Plan 03 BacktestEngine action
 
 3. **GET /bars API shape**
    - Should it return ALL bars for a symbol+tf, or accept `from`/`to` query params?
    - Cold-load on dashboard requires the most recent RTH session bars (D-07)
    - Recommendation: `GET /bars?symbol=SPY&tf=1m&limit=390` (last N bars) for cold-load; the Phase 7 date-picker gets `from`/`to` params
+   - **RESOLVED:** limit-based (?symbol&tf&limit=390) per Plan 04 GET /bars action
 
 ---
 

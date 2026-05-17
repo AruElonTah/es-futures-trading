@@ -135,6 +135,15 @@ Plans:
 - This phase delivers the minimum `RiskManager` (pass-through, fixed 1 MES) and the minimum `PaperExecutor` (next-bar fill, slippage, EOD flat). The full Risk Manager ships in Phase 5; the `Protocol` seam is honored here so Phase 5 is a drop-in swap.
 - UI-01 here is the **minimal surface**: `/bars`, `/backtests`, `WS /stream`. The full endpoint set (`/positions`, `/trades`, `/equity`, `/optimizations`, `/kill`, `/flatten`) is completed in later phases when their respective subsystems land.
 
+**Plans:** 5 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — D-10 minimal model fields + DuckDB backtests/trades tables + no-direct-vbt pre-commit hook + Wave 0 test stubs (Wave 1)
+- [ ] 03-02-PLAN.md — safe_from_signals wrapper + PassThroughRiskManager + PaperExecutor (slippage, intrabar stop-first, EOD flatten) (Wave 2)
+- [ ] 03-03-PLAN.md — BacktestEngine (driver loop + VBT metrics + MAE/MFE) + run_backtest.py CLI + BL-1 lookahead + reproducibility integration tests (Wave 3)
+- [ ] 03-04-PLAN.md — FastAPI GET /bars + GET /backtests + WS /stream (7-topic asyncio.Queue fan-out) + CORS regression update (Wave 4)
+- [ ] 03-05-PLAN.md — Next.js /dashboard (two-pane chart + equity, ORB overlay, ET clock, connection-status, degradation banner) + GET /backtests/{run_id}/equity (Wave 5, includes human-verify checkpoint)
+
 ---
 
 ### Phase 4: Optimization Grid + Walk-Forward
@@ -266,7 +275,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 0. Provider Validation Spike | 3/3 | Complete   | 2026-05-14 |
 | 1. Foundation + Data In | 6/6 | Complete   | 2026-05-15 |
 | 2. Strategy Engine + Indicators | 2/2 | Complete   | 2026-05-16 |
-| 3. Vertical MVP Slice + Backtester | 0/TBD | Not started | - |
+| 3. Vertical MVP Slice + Backtester | 0/5 | Planned    | - |
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
 | 5. Risk Manager + Full Audit + Controls | 0/TBD | Not started | - |
 | 6. TradingView MCP Bridge | 0/TBD | Not started | - |
@@ -282,4 +291,4 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 - FND-08 has cross-phase aspects: the `runs` table and hash logging infrastructure is owned by Phase 1 (primary phase); the CI assertion test is introduced in Phase 3 and expanded in Phase 8 — captured in Cross-Phase Guardrails above.
 - MD-10 is owned by Phase 6 (not Phase 1) because daily TV↔Twelve-Data reconciliation requires the TV bridge to exist.
 
-*Last updated: 2026-05-15 — Phase 1 complete (6/6 plans; FastAPI shell + Next.js stub finalized; full acceptance smoke green).*
+*Last updated: 2026-05-16 — Phase 3 planned (5 plans across 5 waves; backtester + FastAPI surface + Next.js dashboard).*

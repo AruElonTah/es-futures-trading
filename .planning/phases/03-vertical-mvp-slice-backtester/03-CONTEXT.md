@@ -39,7 +39,7 @@ The user can run a one-command CLI backtest and load a Next.js `/dashboard` page
 
 - **D-08: Two-pane layout — chart (top ~70%) + equity curve (bottom ~30%).** Chart pane: Lightweight Charts v5 candlestick series with ORB overlays and signal markers. Equity curve pane: Lightweight Charts v5 line series showing `equity_$` vs time for the most recent backtest (if one exists). Both panes update in real-time via `WS /stream`. Phase 7 adds drag/resize; Phase 3 uses fixed percentage heights.
 
-- **D-09: ORB overlays use Lightweight Charts v5 primitive types — no custom plugins.** ORB box high/low = two `ISeriesApi.createPriceLine()` calls scoped to the opening-range window. Entry arrow = `series.setMarkers()` with an up/down arrow shape. Stop line = price line (red). Target line = price line (green). Phase 7 may upgrade to a custom drawing plugin for a true shaded rectangle.
+- **D-09: ORB overlays use Lightweight Charts v5 primitive types — no custom plugins.** ORB box high/low = two `ISeriesApi.createPriceLine()` calls scoped to the opening-range window. Entry arrow = `createSeriesMarkers(series, markers_array)` (named import from 'lightweight-charts') — NOTE: `series.setMarkers()` was removed in v5.2.0 and must NOT be used (Pitfall 2 in RESEARCH.md). Stop line = price line (red). Target line = price line (green). Phase 7 may upgrade to a custom drawing plugin for a true shaded rectangle.
 
 ### Risk + Fill Model Concreteness
 
