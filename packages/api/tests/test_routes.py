@@ -335,3 +335,407 @@ class TestGetBacktests:
         # created_at is an ISO 8601 string
         assert isinstance(row["created_at"], str)
         assert "T" in row["created_at"]
+
+
+# ---------------------------------------------------------------------------
+# GET /backtests/{run_id}/equity tests  (Task 1 — T-03-05-01)
+# ---------------------------------------------------------------------------
+
+class TestEquityRoute:
+    """Tests for GET /backtests/{run_id}/equity (T-03-05-01 path-traversal guard)."""
+
+    def _seed_backtest(self, store, run_id: str, equity_path: str) -> None:
+        """Insert a backtests row with the given equity_curve_path."""
+        from datetime import datetime, timezone
+        store.write_backtest(
+            run_id=run_id,
+            strategy_id="orb",
+            symbol="SPY",
+            timeframe="1m",
+            from_ts=datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc),
+            to_ts=datetime(2024, 1, 2, 21, 0, tzinfo=timezone.utc),
+            param_hash="abc",
+            equity_curve_path=equity_path,
+            total_return=0.05,
+            cagr=0.12,
+            sharpe=1.5,
+            sortino=2.0,
+            calmar=3.0,
+            max_dd=-0.02,
+            max_dd_duration_bars=30,
+            win_rate=0.55,
+            expectancy=0.3,
+            profit_factor=1.8,
+            trade_count=10,
+            avg_hold_bars=15.0,
+        )
+
+    def _write_equity_parquet(self, path) -> None:
+        """Write a minimal equity parquet file at the given path."""
+        import pandas as pd
+        from pathlib import Path
+        from trading_core.backtest.engine import write_equity_parquet
+        from datetime import datetime, timezone
+        path = Path(path)
+        df = pd.DataFrame({
+            "ts_utc": [datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc),
+                       datetime(2024, 1, 2, 14, 31, tzinfo=timezone.utc)],
+            "equity_$": [10000.0, 10050.0],
+            "drawdown_$": [0.0, 0.0],
+        })
+        write_equity_parquet(df, path)
+
+    def test_equity_returns_200_with_data(self, tmp_path: Path) -> None:
+        """GET /backtests/{run_id}/equity returns 200 with the equity rows."""
+        from trading_core.storage.duckdb_store import DuckDBStore
+        from pathlib import Path
+
+        db_path = tmp_path / "t.duckdb"
+        run_id = "run-equity-01"
+        # equity path must be relative to repo root under data/parquet/equity/
+        # We'll set up a fake repo-rooted path by patching _EQUITY_ROOT in the route
+        # Instead, write the parquet to a location the route will resolve correctly.
+        # The route resolves equity_curve_path relative to repo root (4 parents up from
+        # packages/api/src/api/routes/backtests.py). We use the actual tmp_path here
+        # and set equity_curve_path to a path under data/parquet/equity in tmp_path.
+        equity_dir = tmp_path / "data" / "parquet" / "equity"
+        equity_dir.mkdir(parents=True)
+        parquet_path = equity_dir / f"{run_id}.parquet"
+        self._write_equity_parquet(parquet_path)
+
+        store = DuckDBStore(db_path)
+        store.ensure_schema()
+        # Use absolute path so route resolves it (route checks relative_to _EQUITY_ROOT)
+        # We need to override _EQUITY_ROOT or use absolute path trick:
+        # Simplest: write relative path as absolute path string so route path.resolve() passes
+        # Actually the route uses:
+        #   abs_path = (repo_root / equity_curve_path).resolve()
+        #   abs_path.relative_to(_EQUITY_ROOT)
+        # We'll set equity_curve_path to the absolute str so (repo_root / abs_str).resolve()
+        # = abs_str.resolve() on posix; on Windows we need to pass it as absolute path
+        # The safest approach for testing: store the absolute path and patch the route's
+        # _EQUITY_ROOT to tmp_path / "data" / "parquet" / "equity"
+        self._seed_backtest(store, run_id, str(parquet_path))
+        store.close()
+
+        # Patch _EQUITY_ROOT to allow the tmp parquet path
+        import api.routes.backtests as bt_module
+        original_equity_root = bt_module._EQUITY_ROOT
+        bt_module._EQUITY_ROOT = equity_dir.resolve()
+        try:
+            app = _make_test_app(db_path)
+            with TestClient(app) as client:
+                response = client.get(f"/backtests/{run_id}/equity")
+        finally:
+            bt_module._EQUITY_ROOT = original_equity_root
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 2
+        row = data[0]
+        assert "ts_utc" in row
+        assert "equity" in row
+        assert "drawdown" in row
+        assert isinstance(row["equity"], float)
+
+    def test_equity_404_unknown_run_id(self, tmp_path: Path) -> None:
+        """GET /backtests/unknown/equity returns 404 with detail message."""
+        app = _make_test_app(tmp_path / "t.duckdb")
+        with TestClient(app) as client:
+            response = client.get("/backtests/nonexistent-run/equity")
+        assert response.status_code == 404
+        assert response.json()["detail"] == "backtest not found"
+
+    def test_equity_404_missing_parquet_file(self, tmp_path: Path) -> None:
+        """GET /backtests/{run_id}/equity returns 404 when parquet file is gone."""
+        from trading_core.storage.duckdb_store import DuckDBStore
+
+        db_path = tmp_path / "t.duckdb"
+        run_id = "run-missing-parquet"
+        equity_dir = tmp_path / "data" / "parquet" / "equity"
+        equity_dir.mkdir(parents=True)
+        # parquet file does NOT exist
+        parquet_path = equity_dir / f"{run_id}.parquet"
+
+        store = DuckDBStore(db_path)
+        store.ensure_schema()
+        self._seed_backtest(store, run_id, str(parquet_path))
+        store.close()
+
+        import api.routes.backtests as bt_module
+        original_equity_root = bt_module._EQUITY_ROOT
+        bt_module._EQUITY_ROOT = equity_dir.resolve()
+        try:
+            app = _make_test_app(db_path)
+            with TestClient(app) as client:
+                response = client.get(f"/backtests/{run_id}/equity")
+        finally:
+            bt_module._EQUITY_ROOT = original_equity_root
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "equity curve not found"
+
+    def test_equity_403_path_traversal(self, tmp_path: Path) -> None:
+        """GET /backtests/{run_id}/equity returns 403 when equity_curve_path escapes root."""
+        from trading_core.storage.duckdb_store import DuckDBStore
+
+        db_path = tmp_path / "t.duckdb"
+        run_id = "run-traversal"
+        equity_dir = tmp_path / "data" / "parquet" / "equity"
+        equity_dir.mkdir(parents=True)
+
+        store = DuckDBStore(db_path)
+        store.ensure_schema()
+        # Manually insert a row with a path traversal attack
+        store._conn.execute(
+            "UPDATE backtests SET equity_curve_path = ? WHERE run_id = ?",
+            ["../../etc/passwd", run_id],
+        ) if False else None  # table is empty; insert directly
+        from datetime import datetime, timezone
+        store._conn.execute(
+            "INSERT INTO backtests (run_id, strategy_id, symbol, timeframe, from_ts, to_ts, "
+            "param_hash, equity_curve_path, total_return, cagr, sharpe, sortino, calmar, "
+            "max_dd, max_dd_duration_bars, win_rate, expectancy, profit_factor, "
+            "trade_count, avg_hold_bars) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            [run_id, "orb", "SPY", "1m",
+             datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc),
+             datetime(2024, 1, 2, 21, 0, tzinfo=timezone.utc),
+             "abc", "../../etc/passwd",
+             0.05, 0.12, 1.5, 2.0, 3.0, -0.02, 30, 0.55, 0.3, 1.8, 10, 15.0],
+        )
+        store.close()
+
+        import api.routes.backtests as bt_module
+        original_equity_root = bt_module._EQUITY_ROOT
+        bt_module._EQUITY_ROOT = equity_dir.resolve()
+        try:
+            app = _make_test_app(db_path)
+            with TestClient(app) as client:
+                response = client.get(f"/backtests/{run_id}/equity")
+        finally:
+            bt_module._EQUITY_ROOT = original_equity_root
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "forbidden equity path"
+
+
+# ---------------------------------------------------------------------------
+# GET /backtests/{run_id}/trades tests  (Task 1)
+# ---------------------------------------------------------------------------
+
+class TestTradesRoute:
+    """Tests for GET /backtests/{run_id}/trades."""
+
+    def _seed_backtest_and_trade(self, store, run_id: str) -> None:
+        """Insert a backtests + trades row for testing."""
+        from datetime import datetime, timezone
+        store.write_backtest(
+            run_id=run_id,
+            strategy_id="orb",
+            symbol="SPY",
+            timeframe="1m",
+            from_ts=datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc),
+            to_ts=datetime(2024, 1, 2, 21, 0, tzinfo=timezone.utc),
+            param_hash="abc",
+            equity_curve_path=f"data/parquet/equity/{run_id}.parquet",
+            total_return=0.05,
+            cagr=0.12,
+            sharpe=1.5,
+            sortino=2.0,
+            calmar=3.0,
+            max_dd=-0.02,
+            max_dd_duration_bars=30,
+            win_rate=0.55,
+            expectancy=0.3,
+            profit_factor=1.8,
+            trade_count=1,
+            avg_hold_bars=15.0,
+        )
+        store.write_trades([{
+            "trade_id": "trade-001",
+            "run_id": run_id,
+            "signal_id": "sig-001",
+            "strategy_id": "orb",
+            "side": "long",
+            "entry_price": 470.0,
+            "exit_price": 472.5,
+            "exit_reason": "target",
+            "entry_ts_utc": datetime(2024, 1, 2, 14, 45, tzinfo=timezone.utc),
+            "exit_ts_utc": datetime(2024, 1, 2, 15, 30, tzinfo=timezone.utc),
+            "pnl": 250.0,
+            "size": 1,
+            "slippage_ticks": 1,
+            "mae": -0.25,
+            "mfe": 3.0,
+            "stop_price": 468.5,
+            "target_price": 474.0,
+        }])
+
+    def test_trades_returns_200_with_rows(self, tmp_path: Path) -> None:
+        """GET /backtests/{run_id}/trades returns 200 with correct fields."""
+        from trading_core.storage.duckdb_store import DuckDBStore
+
+        db_path = tmp_path / "t.duckdb"
+        run_id = "run-trades-01"
+        store = DuckDBStore(db_path)
+        store.ensure_schema()
+        self._seed_backtest_and_trade(store, run_id)
+        store.close()
+
+        app = _make_test_app(db_path)
+        with TestClient(app) as client:
+            response = client.get(f"/backtests/{run_id}/trades")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+        assert len(data) == 1
+        trade = data[0]
+        assert trade["trade_id"] == "trade-001"
+        assert trade["side"] == "long"
+        assert trade["entry_price"] == pytest.approx(470.0)
+        assert trade["exit_price"] == pytest.approx(472.5)
+        assert trade["exit_reason"] == "target"
+        assert "entry_ts_utc" in trade
+        assert "exit_ts_utc" in trade
+        assert trade["stop_price"] == pytest.approx(468.5)
+        assert trade["target_price"] == pytest.approx(474.0)
+        assert isinstance(trade["stop_price"], float)
+        assert isinstance(trade["target_price"], float)
+
+    def test_trades_404_unknown_run_id(self, tmp_path: Path) -> None:
+        """GET /backtests/unknown/trades returns 404."""
+        app = _make_test_app(tmp_path / "t.duckdb")
+        with TestClient(app) as client:
+            response = client.get("/backtests/nonexistent/trades")
+        assert response.status_code == 404
+        assert response.json()["detail"] == "backtest not found"
+
+    def test_trades_returns_empty_list_when_no_trades(self, tmp_path: Path) -> None:
+        """GET /backtests/{run_id}/trades returns 200 [] when trades table is empty for run."""
+        from trading_core.storage.duckdb_store import DuckDBStore
+        from datetime import datetime, timezone
+
+        db_path = tmp_path / "t.duckdb"
+        run_id = "run-no-trades"
+        store = DuckDBStore(db_path)
+        store.ensure_schema()
+        store.write_backtest(
+            run_id=run_id,
+            strategy_id="orb",
+            symbol="SPY",
+            timeframe="1m",
+            from_ts=datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc),
+            to_ts=datetime(2024, 1, 2, 21, 0, tzinfo=timezone.utc),
+            param_hash="abc",
+            equity_curve_path=f"data/parquet/equity/{run_id}.parquet",
+            total_return=0.0,
+            cagr=0.0,
+            sharpe=0.0,
+            sortino=0.0,
+            calmar=0.0,
+            max_dd=0.0,
+            max_dd_duration_bars=0,
+            win_rate=0.0,
+            expectancy=0.0,
+            profit_factor=0.0,
+            trade_count=0,
+            avg_hold_bars=0.0,
+        )
+        store.close()
+
+        app = _make_test_app(db_path)
+        with TestClient(app) as client:
+            response = client.get(f"/backtests/{run_id}/trades")
+        assert response.status_code == 200
+        assert response.json() == []
+
+    def test_trades_nullable_stop_target(self, tmp_path: Path) -> None:
+        """stop_price and target_price may be None; route returns them as null."""
+        from trading_core.storage.duckdb_store import DuckDBStore
+        from datetime import datetime, timezone
+
+        db_path = tmp_path / "t.duckdb"
+        run_id = "run-nullable"
+        store = DuckDBStore(db_path)
+        store.ensure_schema()
+        from datetime import datetime, timezone
+        store.write_backtest(
+            run_id=run_id,
+            strategy_id="orb",
+            symbol="SPY",
+            timeframe="1m",
+            from_ts=datetime(2024, 1, 2, 14, 30, tzinfo=timezone.utc),
+            to_ts=datetime(2024, 1, 2, 21, 0, tzinfo=timezone.utc),
+            param_hash="abc",
+            equity_curve_path=f"data/parquet/equity/{run_id}.parquet",
+            total_return=0.05,
+            cagr=0.12,
+            sharpe=1.5,
+            sortino=2.0,
+            calmar=3.0,
+            max_dd=-0.02,
+            max_dd_duration_bars=30,
+            win_rate=0.55,
+            expectancy=0.3,
+            profit_factor=1.8,
+            trade_count=1,
+            avg_hold_bars=15.0,
+        )
+        store.write_trades([{
+            "trade_id": "trade-null",
+            "run_id": run_id,
+            "signal_id": "sig-null",
+            "strategy_id": "orb",
+            "side": "long",
+            "entry_price": 470.0,
+            "exit_price": 472.0,
+            "exit_reason": "eod_flat",
+            "entry_ts_utc": datetime(2024, 1, 2, 14, 45, tzinfo=timezone.utc),
+            "exit_ts_utc": datetime(2024, 1, 2, 21, 0, tzinfo=timezone.utc),
+            "pnl": 200.0,
+            "size": 1,
+            "slippage_ticks": 1,
+            "mae": -0.5,
+            "mfe": 2.5,
+            "stop_price": None,
+            "target_price": None,
+        }])
+        store.close()
+
+        app = _make_test_app(db_path)
+        with TestClient(app) as client:
+            response = client.get(f"/backtests/{run_id}/trades")
+        assert response.status_code == 200
+        trade = response.json()[0]
+        assert trade["stop_price"] is None
+        assert trade["target_price"] is None
+
+
+# ---------------------------------------------------------------------------
+# CORS tests  (Task 1 — T-03-05-02)
+# ---------------------------------------------------------------------------
+
+class TestCORS:
+    """CORS allows localhost:3000; rejects other origins (T-03-05-02)."""
+
+    def test_cors_allows_localhost_3000(self, tmp_path: Path) -> None:
+        """GET /bars with Origin: http://localhost:3000 receives allow header."""
+        app = _make_test_app(tmp_path / "t.duckdb")
+        with TestClient(app) as client:
+            response = client.get(
+                "/bars?symbol=SPY&tf=1m&limit=1",
+                headers={"Origin": "http://localhost:3000"},
+            )
+        assert response.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+    def test_cors_rejects_unknown_origin(self, tmp_path: Path) -> None:
+        """GET /bars with a non-allowed origin does NOT receive allow header."""
+        app = _make_test_app(tmp_path / "t.duckdb")
+        with TestClient(app) as client:
+            response = client.get(
+                "/bars?symbol=SPY&tf=1m&limit=1",
+                headers={"Origin": "http://evil.example.com"},
+            )
+        assert "access-control-allow-origin" not in response.headers
