@@ -22,12 +22,12 @@ function formatET(): string {
 }
 
 export default function ETClock() {
-  const [time, setTime] = useState<string>(() => formatET())
+  // null on SSR — only set after mount to avoid hydration mismatch (Date changes each render)
+  const [time, setTime] = useState<string | null>(null)
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setTime(formatET())
-    }, 1000)
+    setTime(formatET())
+    const interval = setInterval(() => setTime(formatET()), 1000)
     return () => clearInterval(interval)
   }, [])
 
@@ -35,8 +35,9 @@ export default function ETClock() {
     <span
       className="font-mono text-sm tabular-nums"
       title="America/New_York"
+      suppressHydrationWarning
     >
-      {time} ET
+      {time != null ? `${time} ET` : '--:--:-- ET'}
     </span>
   )
 }
