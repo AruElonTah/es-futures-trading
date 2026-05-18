@@ -23,11 +23,42 @@ The class is usable as a context manager so callers can write::
 
 from __future__ import annotations
 
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import duckdb
+
+
+class _LockedConn:
+    """Thread-safe proxy for a DuckDB connection.
+
+    FastAPI runs synchronous route handlers in a thread-pool executor, so
+    multiple requests can call _conn.execute() concurrently on the same
+    Connection object. DuckDB connections are not thread-safe; concurrent
+    execute() calls on a single Connection return corrupt or empty results.
+    This wrapper serializes all execute/executemany calls with a Lock so the
+    singleton DuckDBStore used by the FastAPI lifespan is safe under load.
+    """
+
+    def __init__(self, conn: duckdb.DuckDBPyConnection) -> None:
+        self._conn = conn
+        self._lock = threading.Lock()
+
+    def execute(self, *args: Any, **kwargs: Any) -> Any:
+        with self._lock:
+            return self._conn.execute(*args, **kwargs)
+
+    def executemany(self, *args: Any, **kwargs: Any) -> Any:
+        with self._lock:
+            return self._conn.executemany(*args, **kwargs)
+
+    def close(self) -> None:
+        self._conn.close()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._conn, name)
 import pandas as pd
 
 # Schema file lives alongside this module. Read verbatim by ensure_schema.
@@ -137,7 +168,7 @@ class DuckDBStore:
             raise FileNotFoundError(
                 f"DuckDBStore parent directory does not exist: {db_path.parent}"
             )
-        self._conn: duckdb.DuckDBPyConnection = duckdb.connect(str(db_path))
+        self._conn: _LockedConn = _LockedConn(duckdb.connect(str(db_path)))
 
     # ---- schema -----------------------------------------------------------
 
