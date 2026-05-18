@@ -112,7 +112,8 @@ except the semantic kill-switch red and pause amber (which extend the existing s
 | Dialog inner border | `#333333` | Confirmation dialog card border |
 
 Accent (`#4a90d9`) is reserved for: nav links, selected-row border, primary non-destructive
-button borders (e.g., "Dismiss", "Cancel"), hotkey badge chip backgrounds when active.
+button borders (e.g., "Dismiss", "Keep Positions", "Stay Running"), hotkey badge chip
+backgrounds when active.
 It is NEVER used for destructive action borders, P&L values, or status indicators.
 
 ---
@@ -151,6 +152,9 @@ Column order (left → right):
 Column headers: `fontSize: 11px`, `color: #888`, `textTransform: uppercase`, `letterSpacing: 0.05em` — matching the existing optimizations-page section label pattern.
 
 Table borders: 1px `#222` bottom on header row; 1px `#1a1a2e` between data rows.
+
+**Focal point:** The primary visual anchor on the blotter is the positions table — the eye
+should land on the unrealized P&L column first.
 
 **Controls row (below table, 48px fixed):**
 - Left side: `F — Flatten All` button and `K — Kill Switch` button
@@ -191,10 +195,10 @@ Modal overlay triggered by `F` hotkey or Flatten button click.
 2. Description: `Close all N open positions at next bar open.` — `fontSize: 12px`, `color: #888`, `marginBottom: 16px`
    (N = live count of open positions from state; `#d1d4dc` for the number N)
 3. Warning: `This action cannot be undone.` — `fontSize: 12px`, `color: #f87171`, `marginBottom: 16px`
-4. Input label: `Type FLATTEN to confirm:` — `fontSize: 11px`, `color: #888`, `marginBottom: 6px`
+4. Input label: `Type FLATTEN to confirm:` — `fontSize: 11px`, `color: #888`, `marginBottom: 8px`
 5. Input field: `<input type="text">` — `fontSize: 12px`, `fontFamily: monospace`, `backgroundColor: #000`, `border: 1px solid #333`, `borderRadius: 4px`, `color: #d1d4dc`, `padding: 8px 12px`, `width: 100%`; border turns `#ef4444` when value is non-empty and !== "FLATTEN"
 6. Button row: right-aligned, gap 8px, `marginTop: 16px`
-   - Cancel: `border: 1px solid #444`, `color: #888`, `backgroundColor: transparent`
+   - Keep Positions (dismiss): `border: 1px solid #444`, `color: #888`, `backgroundColor: transparent`
    - Confirm: enabled only when input === "FLATTEN"; when disabled: `border: 1px solid #444`, `color: #555`, `cursor: not-allowed`; when enabled: `border: 1px solid #ef4444`, `color: #ef4444`, `cursor: pointer`
 
 **Keyboard:** `Escape` closes and cancels. `Enter` when input === "FLATTEN" fires confirm.
@@ -206,10 +210,10 @@ Same overlay structure as Flatten dialog. Contents differ:
 1. Title: `KILL SWITCH` — `fontSize: 14px`, `fontWeight: bold`, `color: #dc2626`, `marginBottom: 16px`
 2. Description: `Halt all signal processing. Existing positions are held open.` — `fontSize: 12px`, `color: #888`, `marginBottom: 16px`
 3. Warning: `No new entries will be accepted until manually re-enabled.` — `fontSize: 12px`, `color: #f87171`, `marginBottom: 16px`
-4. Input label: `Type KILL to confirm:` — `fontSize: 11px`, `color: #888`, `marginBottom: 6px`
+4. Input label: `Type KILL to confirm:` — `fontSize: 11px`, `color: #888`, `marginBottom: 8px`
 5. Input field: same style as Flatten; border turns `#dc2626` when value is non-empty and !== "KILL"
 6. Button row:
-   - Cancel: same style as Flatten cancel
+   - Stay Running (dismiss): same style as Flatten dismiss button (`border: 1px solid #444`, `color: #888`, `backgroundColor: transparent`)
    - Confirm: enabled only when input === "KILL"; enabled state: `border: 1px solid #dc2626`, `color: #dc2626`
 
 ### 5. HelpOverlay — Hotkey Registry
@@ -231,7 +235,7 @@ Full-screen overlay triggered by `?` key. Does NOT block the underlying page (us
 | `P` | Pause / resume active strategy |
 | `?` | Show this help overlay |
 
-Each row: `display: flex`, `justifyContent: space-between`, `alignItems: center`, `padding: 6px 0`.
+Each row: `display: flex`, `justifyContent: space-between`, `alignItems: center`, `padding: 8px 0`.
 Divider: `borderBottom: 1px solid #222` between rows (not after last row).
 Key chip: `backgroundColor: #222`, `border: 1px solid #444`, `color: #d1d4dc`, `borderRadius: 2px`, `padding: 2px 8px`, `fontSize: 11px`, `minWidth: 28px`, `textAlign: center`.
 Description: `fontSize: 12px`, `color: #888`.
@@ -334,7 +338,8 @@ WS `engine_state_changed` events update this field in real time.
 | Kill input label | `Type KILL to confirm:` |
 | Flatten confirm button (disabled) | `Confirm Flatten` |
 | Kill confirm button (disabled) | `Confirm Kill` |
-| Cancel button (both dialogs) | `Cancel` |
+| Flatten dismiss button | `Keep Positions` |
+| Kill dismiss button | `Stay Running` |
 | Help overlay title | `KEYBOARD SHORTCUTS` |
 | Help overlay footer | `Press Esc to close` |
 | Blotter empty state heading | `No open positions` |
