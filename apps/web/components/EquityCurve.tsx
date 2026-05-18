@@ -47,11 +47,12 @@ export default function EquityCurve({ points }: EquityCurveProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current || points.length === 0) return
 
-    const chart: IChartApi = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
+    const container = containerRef.current
+    const chart: IChartApi = createChart(container, {
+      width: container.clientWidth,
+      height: container.clientHeight,
       layout: {
         background: { color: '#000000' },
         textColor: '#d1d4dc',
@@ -84,35 +85,27 @@ export default function EquityCurve({ points }: EquityCurveProps) {
       title: 'Drawdown $',
     })
 
-    if (points.length > 0) {
-      equitySeries.setData(
-        points.map((p) => ({
-          time: Math.floor(new Date(p.ts_utc).getTime() / 1000) as Time,
-          value: p.equity,
-        }))
-      )
-
-      drawdownSeries.setData(
-        points.map((p) => ({
-          time: Math.floor(new Date(p.ts_utc).getTime() / 1000) as Time,
-          value: p.drawdown,
-        }))
-      )
-
-      chart.timeScale().fitContent()
-    }
+    equitySeries.setData(
+      points.map((p) => ({
+        time: Math.floor(new Date(p.ts_utc).getTime() / 1000) as Time,
+        value: p.equity,
+      }))
+    )
+    drawdownSeries.setData(
+      points.map((p) => ({
+        time: Math.floor(new Date(p.ts_utc).getTime() / 1000) as Time,
+        value: p.drawdown,
+      }))
+    )
+    chart.timeScale().fitContent()
 
     const resizeObserver = new ResizeObserver(() => {
-      if (containerRef.current) {
-        chart.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        })
-      }
+      chart.applyOptions({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      })
     })
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current)
-    }
+    resizeObserver.observe(container)
 
     return () => {
       resizeObserver.disconnect()

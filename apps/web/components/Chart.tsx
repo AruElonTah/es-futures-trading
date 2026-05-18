@@ -71,11 +71,12 @@ export default function Chart({
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current || bars.length === 0) return
 
-    const chart: IChartApi = createChart(containerRef.current, {
-      width: containerRef.current.clientWidth,
-      height: containerRef.current.clientHeight,
+    const container = containerRef.current
+    const chart: IChartApi = createChart(container, {
+      width: container.clientWidth,
+      height: container.clientHeight,
       layout: {
         background: { color: '#000000' },
         textColor: '#d1d4dc',
@@ -191,18 +192,13 @@ export default function Chart({
     // Fit content on initial render
     chart.timeScale().fitContent()
 
-    // ResizeObserver for responsive sizing
     const resizeObserver = new ResizeObserver(() => {
-      if (containerRef.current) {
-        chart.applyOptions({
-          width: containerRef.current.clientWidth,
-          height: containerRef.current.clientHeight,
-        })
-      }
+      chart.applyOptions({
+        width: container.clientWidth,
+        height: container.clientHeight,
+      })
     })
-    if (containerRef.current) {
-      resizeObserver.observe(containerRef.current)
-    }
+    resizeObserver.observe(container)
 
     return () => {
       resizeObserver.disconnect()

@@ -96,10 +96,17 @@ export default function DashboardPage() {
   const { data: equityPoints } = useEquityCurve(latestRunId)
   const { data: trades } = useEquityTrades(latestRunId)
 
+  // Stable empty-array fallbacks — prevent new [] refs on every render while
+  // queries are loading, which would cause Chart's effect to destroy/recreate
+  // the canvas on every parent re-render.
+  const stableBars = useMemo(() => bars ?? [], [bars])
+  const stableTrades = useMemo(() => trades ?? [], [trades])
+  const stablePoints = useMemo(() => equityPoints ?? [], [equityPoints])
+
   // Derive ORB overlay client-side from bars
   const { orbHigh, orbLow } = useMemo(
-    () => computeORB(bars ?? []),
-    [bars]
+    () => computeORB(stableBars),
+    [stableBars]
   )
 
   return (
@@ -175,16 +182,16 @@ export default function DashboardPage() {
       {/* Chart pane — 70% of remaining height after header (D-08) */}
       <div style={{ flex: '7 1 0', overflow: 'hidden', minHeight: 0 }}>
         <Chart
-          bars={bars ?? []}
+          bars={stableBars}
           orbHigh={orbHigh}
           orbLow={orbLow}
-          trades={trades ?? []}
+          trades={stableTrades}
         />
       </div>
 
       {/* Equity curve pane — 30% of remaining height after header (D-08) */}
       <div style={{ flex: '3 1 0', overflow: 'hidden', minHeight: 0 }}>
-        <EquityCurve points={equityPoints ?? []} />
+        <EquityCurve points={stablePoints} />
       </div>
     </div>
   )
