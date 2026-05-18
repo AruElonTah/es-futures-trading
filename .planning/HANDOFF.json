@@ -1,8 +1,8 @@
 {
   "version": "1.0",
-  "timestamp": "2026-05-17T00:00:00Z",
+  "timestamp": "2026-05-18",
   "phase": null,
-  "phase_name": "ad-hoc UI bug fix — dual lightweight-charts rendering",
+  "phase_name": "ad-hoc: dual lightweight-charts fix + opt equity feature",
   "phase_dir": null,
   "plan": null,
   "task": null,
@@ -11,78 +11,104 @@
   "completed_tasks": [
     {
       "id": 1,
-      "name": "Add useMemo stable refs in dashboard/page.tsx to prevent ?? [] from creating new array refs on every render",
-      "status": "done",
-      "commit": "a250804"
+      "name": "Chart.tsx: two-effect refactor (lifecycle vs trade overlays)",
+      "status": "done — needs debug console.logs cleaned up",
+      "commit": "uncommitted"
     },
     {
       "id": 2,
-      "name": "Add data-length guards (bars.length === 0, points.length === 0) to prevent chart creation before data arrives",
+      "name": "backtests.py + optimizations.py: _find_repo_root walks to outermost pyproject.toml",
       "status": "done",
-      "commit": "a250804"
+      "commit": "uncommitted"
     },
     {
       "id": 3,
-      "name": "Switch to getBoundingClientRect() for initial sizing in Chart.tsx and EquityCurve.tsx to survive chart.remove() clearing inline styles during StrictMode double-mount",
+      "name": "run_opt.py: close DuckDB write connection before ProcessPoolExecutor dispatch, reopen after",
       "status": "done",
-      "commit": "UNCOMMITTED"
+      "commit": "uncommitted"
     },
     {
       "id": 4,
-      "name": "Switch ResizeObserver to use contentRect.width/height instead of re-reading clientWidth/clientHeight",
+      "name": "optimizations.py: GET /optimizations/{run_id}/results/{result_id}/equity endpoint",
       "status": "done",
-      "commit": "UNCOMMITTED"
+      "commit": "uncommitted"
     },
     {
       "id": 5,
-      "name": "Remove debug diagnostic label (bars:390) from dashboard/page.tsx",
+      "name": "test_health.py: added new equity endpoint to registered-endpoints test",
       "status": "done",
-      "commit": "UNCOMMITTED"
+      "commit": "uncommitted"
+    },
+    {
+      "id": 6,
+      "name": "optimizations/page.tsx: row selection (click → highlight) + OOS equity curve display",
+      "status": "in_progress — UI wired, not browser-tested",
+      "commit": "uncommitted"
     }
   ],
   "remaining_tasks": [
     {
-      "id": 6,
-      "name": "Commit the getBoundingClientRect fix (Chart.tsx, EquityCurve.tsx, dashboard/page.tsx)",
+      "id": 7,
+      "name": "Remove debug console.logs from Chart.tsx, dashboard/page.tsx, useBars.ts",
       "status": "not_started"
     },
     {
-      "id": 7,
-      "name": "User browser-test: refresh dashboard and confirm both candlestick chart AND equity curve render reliably",
-      "status": "not_started",
-      "type": "human_action"
+      "id": 8,
+      "name": "Browser-verify: both candlestick + equity curve charts render on /dashboard",
+      "status": "not_started — human action required"
+    },
+    {
+      "id": 9,
+      "name": "Browser-verify: optimizations row click shows OOS equity curve",
+      "status": "not_started — human action required"
+    },
+    {
+      "id": 10,
+      "name": "Commit all changes (clean, no debug logs)",
+      "status": "not_started"
     }
   ],
   "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Refresh http://localhost:3000/dashboard and confirm both candlestick chart AND equity curve are visible after the getBoundingClientRect fix",
-      "context": "The previous fix (a250804) made rendering non-deterministic — sometimes both showed, usually only equity curve. getBoundingClientRect() was applied to fix chart.remove() clearing inline styles. Needs browser verification before declaring the bug fixed.",
+      "action": "Start dev servers and verify /dashboard shows BOTH candlestick + equity curve charts",
+      "context": "Backend: uv run uvicorn packages.api.src.api.app:app --reload --port 8000. Frontend: pnpm --filter web dev. Then open http://localhost:3000/dashboard",
       "blocking": true
+    },
+    {
+      "action": "Verify /optimizations row click shows OOS equity curve below heatmap",
+      "context": "Need an actual opt run in DB first — run: python scripts/run_opt.py --config ... to populate opt_results",
+      "blocking": false
     }
   ],
   "decisions": [
     {
-      "decision": "Use getBoundingClientRect() instead of clientHeight for initial chart sizing",
-      "rationale": "React StrictMode double-mount: effect fires (createChart), cleanup fires (chart.remove() clears lightweight-charts inline container styles), effect fires again. On the second createChart() call, clientHeight=0 because the inline styles are gone. getBoundingClientRect() forces a synchronous layout flush and returns live dimensions regardless of inline style state.",
+      "decision": "Split Chart.tsx into two useEffects: Effect 1 handles chart lifecycle + ORB levels (deps: bars, orbHigh, orbLow). Effect 2 applies trade overlays imperatively via seriesRef + chartKey (deps: trades, chartKey).",
+      "rationale": "trades in Effect 1 deps caused the chart to destroy/recreate when trades arrived after bars, reading clientHeight=0 after chart.remove() cleared inline styles. Two-effect approach prevents this by keeping chart lifecycle stable.",
       "phase": "ad-hoc"
     },
     {
-      "decision": "Use contentRect.width/height in ResizeObserver callback instead of re-reading clientWidth/clientHeight",
-      "rationale": "contentRect is computed fresh by the browser's resize algorithm; clientWidth/clientHeight can be stale in edge cases.",
+      "decision": "_find_repo_root now walks to the OUTERMOST pyproject.toml, not the first one found",
+      "rationale": "Original implementation returned the first (innermost) pyproject.toml, which could be a package root rather than the repo root, causing _EQUITY_ROOT and _OPT_EQUITY_ROOT to point to wrong paths.",
       "phase": "ad-hoc"
     },
     {
-      "decision": "Use useMemo for stable empty-array fallbacks in dashboard/page.tsx",
-      "rationale": "data ?? [] in JSX creates a new array object on every parent render, causing lightweight-charts effects to fire and destroy/recreate the canvas even when data hasn't changed.",
+      "decision": "DuckDB write connection closed before ProcessPoolExecutor dispatch in run_opt.py",
+      "rationale": "DuckDB does not allow concurrent access — workers opening read-only connections failed when the orchestrator held the write connection open.",
       "phase": "ad-hoc"
     }
   ],
   "uncommitted_files": [
     "apps/web/components/Chart.tsx",
-    "apps/web/components/EquityCurve.tsx",
-    "apps/web/app/dashboard/page.tsx"
+    "apps/web/app/dashboard/page.tsx",
+    "apps/web/app/optimizations/page.tsx",
+    "apps/web/hooks/useBars.ts",
+    "packages/api/src/api/routes/backtests.py",
+    "packages/api/src/api/routes/optimizations.py",
+    "packages/api/tests/test_health.py",
+    "scripts/run_opt.py",
+    ".planning/decisions/opt-20260517.md (untracked)"
   ],
-  "next_action": "Commit Chart.tsx + EquityCurve.tsx + dashboard/page.tsx, then have user refresh /dashboard to verify both charts render",
-  "context_notes": "The root cause is React StrictMode double-mount interacting with lightweight-charts v5 chart.remove() which clears inline container styles. The fix is getBoundingClientRect() for initial sizing (forces synchronous layout flush) and contentRect in ResizeObserver. Pre-existing uncommitted changes in optimizations/page.tsx, backtests.py, optimizations.py, test_health.py, scripts/run_opt.py are NOT part of this fix."
+  "next_action": "Remove debug console.logs from Chart.tsx (search for '[Chart]', '[dash]', '[useBars]'), dashboard/page.tsx, and useBars.ts. Then commit all changes cleanly. Then ask user to browser-verify /dashboard.",
+  "context_notes": "Phase 04 is 100% complete. This ad-hoc session layered two things: (1) the Chart.tsx two-effect refactor (the real root-cause fix for the StrictMode/chart.remove() height-0 bug) and (2) a bonus feature — optimizations page row selection + per-result OOS equity curve. Both are uncommitted. Debug logs sprinkled in Chart.tsx, dashboard/page.tsx, useBars.ts need cleanup before commit. Next planned phase is Phase 5 (Risk Manager + Full Audit + Controls)."
 }
