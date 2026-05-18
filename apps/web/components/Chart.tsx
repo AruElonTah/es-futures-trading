@@ -74,9 +74,10 @@ export default function Chart({
     if (!containerRef.current || bars.length === 0) return
 
     const container = containerRef.current
+    const { width: rectW, height: rectH } = container.getBoundingClientRect()
     const chart: IChartApi = createChart(container, {
-      width: container.clientWidth,
-      height: container.clientHeight,
+      width: rectW || container.clientWidth || 800,
+      height: rectH || container.clientHeight || 400,
       layout: {
         background: { color: '#000000' },
         textColor: '#d1d4dc',
@@ -192,11 +193,9 @@ export default function Chart({
     // Fit content on initial render
     chart.timeScale().fitContent()
 
-    const resizeObserver = new ResizeObserver(() => {
-      chart.applyOptions({
-        width: container.clientWidth,
-        height: container.clientHeight,
-      })
+    const resizeObserver = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect
+      if (width > 0 && height > 0) chart.applyOptions({ width, height })
     })
     resizeObserver.observe(container)
 

@@ -1,0 +1,88 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-17T00:00:00Z",
+  "phase": null,
+  "phase_name": "ad-hoc UI bug fix — dual lightweight-charts rendering",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "paused",
+  "completed_tasks": [
+    {
+      "id": 1,
+      "name": "Add useMemo stable refs in dashboard/page.tsx to prevent ?? [] from creating new array refs on every render",
+      "status": "done",
+      "commit": "a250804"
+    },
+    {
+      "id": 2,
+      "name": "Add data-length guards (bars.length === 0, points.length === 0) to prevent chart creation before data arrives",
+      "status": "done",
+      "commit": "a250804"
+    },
+    {
+      "id": 3,
+      "name": "Switch to getBoundingClientRect() for initial sizing in Chart.tsx and EquityCurve.tsx to survive chart.remove() clearing inline styles during StrictMode double-mount",
+      "status": "done",
+      "commit": "UNCOMMITTED"
+    },
+    {
+      "id": 4,
+      "name": "Switch ResizeObserver to use contentRect.width/height instead of re-reading clientWidth/clientHeight",
+      "status": "done",
+      "commit": "UNCOMMITTED"
+    },
+    {
+      "id": 5,
+      "name": "Remove debug diagnostic label (bars:390) from dashboard/page.tsx",
+      "status": "done",
+      "commit": "UNCOMMITTED"
+    }
+  ],
+  "remaining_tasks": [
+    {
+      "id": 6,
+      "name": "Commit the getBoundingClientRect fix (Chart.tsx, EquityCurve.tsx, dashboard/page.tsx)",
+      "status": "not_started"
+    },
+    {
+      "id": 7,
+      "name": "User browser-test: refresh dashboard and confirm both candlestick chart AND equity curve render reliably",
+      "status": "not_started",
+      "type": "human_action"
+    }
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {
+      "action": "Refresh http://localhost:3000/dashboard and confirm both candlestick chart AND equity curve are visible after the getBoundingClientRect fix",
+      "context": "The previous fix (a250804) made rendering non-deterministic — sometimes both showed, usually only equity curve. getBoundingClientRect() was applied to fix chart.remove() clearing inline styles. Needs browser verification before declaring the bug fixed.",
+      "blocking": true
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Use getBoundingClientRect() instead of clientHeight for initial chart sizing",
+      "rationale": "React StrictMode double-mount: effect fires (createChart), cleanup fires (chart.remove() clears lightweight-charts inline container styles), effect fires again. On the second createChart() call, clientHeight=0 because the inline styles are gone. getBoundingClientRect() forces a synchronous layout flush and returns live dimensions regardless of inline style state.",
+      "phase": "ad-hoc"
+    },
+    {
+      "decision": "Use contentRect.width/height in ResizeObserver callback instead of re-reading clientWidth/clientHeight",
+      "rationale": "contentRect is computed fresh by the browser's resize algorithm; clientWidth/clientHeight can be stale in edge cases.",
+      "phase": "ad-hoc"
+    },
+    {
+      "decision": "Use useMemo for stable empty-array fallbacks in dashboard/page.tsx",
+      "rationale": "data ?? [] in JSX creates a new array object on every parent render, causing lightweight-charts effects to fire and destroy/recreate the canvas even when data hasn't changed.",
+      "phase": "ad-hoc"
+    }
+  ],
+  "uncommitted_files": [
+    "apps/web/components/Chart.tsx",
+    "apps/web/components/EquityCurve.tsx",
+    "apps/web/app/dashboard/page.tsx"
+  ],
+  "next_action": "Commit Chart.tsx + EquityCurve.tsx + dashboard/page.tsx, then have user refresh /dashboard to verify both charts render",
+  "context_notes": "The root cause is React StrictMode double-mount interacting with lightweight-charts v5 chart.remove() which clears inline container styles. The fix is getBoundingClientRect() for initial sizing (forces synchronous layout flush) and contentRect in ResizeObserver. Pre-existing uncommitted changes in optimizations/page.tsx, backtests.py, optimizations.py, test_health.py, scripts/run_opt.py are NOT part of this fix."
+}
