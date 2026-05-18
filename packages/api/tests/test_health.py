@@ -76,7 +76,8 @@ def test_phase3_endpoints_registered() -> None:
     #   /backtests, /backtests/{run_id}/equity, /backtests/{run_id}/trades,
     #   /bars, /health, /stream (WS),
     #   /optimizations, /optimizations/{run_id}, /optimizations/{run_id}/results,
-    #   /optimizations/{run_id}/heatmap
+    #   /optimizations/{run_id}/heatmap,
+    #   /optimizations/{run_id}/results/{result_id}/equity
     expected = sorted([
         "/backtests",
         "/backtests/{run_id}/equity",
@@ -88,6 +89,7 @@ def test_phase3_endpoints_registered() -> None:
         "/optimizations/{run_id}",
         "/optimizations/{run_id}/results",
         "/optimizations/{run_id}/heatmap",
+        "/optimizations/{run_id}/results/{result_id}/equity",
     ])
     assert user_paths == expected, (
         f"Phase 4 app must expose exactly {expected}; "

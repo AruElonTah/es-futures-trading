@@ -1,25 +1,22 @@
 """GET /optimizations routes — Phase 4 Plan 03.
 
 Endpoints:
-  GET /optimizations                          — list opt_runs ordered by created_at DESC
-  GET /optimizations/{run_id}                 — single opt_run row; 404 if not found
-  GET /optimizations/{run_id}/results         — opt_results for run_id, sorted oos_sharpe DESC
-  GET /optimizations/{run_id}/heatmap         — 2D grid {x, y, z} for Plotly heatmap
+  GET /optimizations                                        — list opt_runs ordered by created_at DESC
+  GET /optimizations/{run_id}                               — single opt_run row; 404 if not found
+  GET /optimizations/{run_id}/results                       — opt_results for run_id, sorted oos_sharpe DESC
+  GET /optimizations/{run_id}/results/{result_id}/equity    — equity curve for one result row
+  GET /optimizations/{run_id}/heatmap                       — 2D grid {x, y, z} for Plotly heatmap
 
 Security (T-04-03-01):
   Heatmap axis params are validated against ALLOWED_AXES whitelist before any SQL
   construction. Both axis_x and axis_y must be in the whitelist; 422 is returned
   otherwise. Column names from the whitelist are safe to interpolate into SQL only
   AFTER this validation gate.
-
-NOTE (T-04-03-02):
-  equity_curve_path is returned as a string in /results. Phase 7 adds file serving;
-  that implementor must enforce path-traversal guards (see backtests.py _EQUITY_ROOT
-  pattern) when serving the file. The /results endpoint only returns the path string.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -30,6 +27,21 @@ from trading_core.storage.duckdb_store import DuckDBStore
 
 router = APIRouter()
 log = get_logger(__name__)
+
+# Path-traversal guard for the opt equity endpoint.
+# Walk up to the outermost pyproject.toml (repo root), skipping inner package roots.
+def _find_repo_root(start: Path) -> Path:
+    found: Path | None = None
+    for candidate in [start, *start.parents]:
+        if (candidate / "pyproject.toml").exists():
+            found = candidate
+    if found is None:
+        raise RuntimeError(f"Could not locate repo root from {start}")
+    return found
+
+_OPT_EQUITY_ROOT: Path = (
+    _find_repo_root(Path(__file__).resolve()) / "data" / "parquet" / "opt"
+).resolve()
 
 # T-04-03-01: Axis whitelist — only these columns may appear in the heatmap GROUP BY.
 # Column names are safe to interpolate into SQL after validation against this set.
@@ -302,4 +314,68 @@ def get_optimization(
         raise HTTPException(status_code=404, detail="optimization run not found")
     result = _serialize_opt_run_row(row, _OPT_RUNS_COLUMNS)
     log.info("optimization.fetched", run_id=run_id)
+    return result
+
+
+@router.get("/optimizations/{run_id}/results/{result_id}/equity")
+def get_opt_result_equity(
+    run_id: str,
+    result_id: str,
+    store: Annotated[DuckDBStore, Depends(get_store)] = ...,  # type: ignore[assignment]
+) -> list[dict]:
+    """Return the OOS equity curve for a single opt result row.
+
+    Reads the Parquet file pointed to by equity_curve_path in opt_results
+    and returns [{ts_utc, equity, drawdown}] ordered by ts_utc ASC.
+
+    Error codes:
+    - 404 result not found — result_id not in opt_results for this run_id
+    - 404 equity curve not found — DB row exists but Parquet file is missing
+    - 403 forbidden equity path — path traversal attempt detected
+    """
+    row = store._conn.execute(
+        "SELECT equity_curve_path FROM opt_results WHERE result_id = ? AND run_id = ?",
+        [result_id, run_id],
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="opt result not found")
+
+    equity_curve_path: str | None = row[0]
+    if not equity_curve_path:
+        raise HTTPException(status_code=404, detail="equity curve not found")
+
+    candidate = Path(equity_curve_path)
+    if candidate.is_absolute():
+        abs_path = candidate.resolve()
+    else:
+        repo_root = _find_repo_root(Path(__file__).resolve())
+        abs_path = (repo_root / equity_curve_path).resolve()
+
+    try:
+        abs_path.relative_to(_OPT_EQUITY_ROOT)
+    except ValueError:
+        log.warning("opt_equity.path_traversal_blocked", result_id=result_id, path=equity_curve_path)
+        raise HTTPException(status_code=403, detail="forbidden equity path")
+
+    if not abs_path.exists():
+        raise HTTPException(status_code=404, detail="equity curve not found")
+
+    parquet_path_str = str(abs_path).replace("\\", "/")
+    equity_rows = store._conn.execute(
+        'SELECT ts_utc, "equity_$" AS equity, "drawdown_$" AS drawdown '
+        "FROM read_parquet($1) ORDER BY ts_utc ASC",
+        [parquet_path_str],
+    ).fetchall()
+
+    result: list[dict] = []
+    for eq_row in equity_rows:
+        ts_utc_val, equity_val, drawdown_val = eq_row
+        ts_str = ts_utc_val.isoformat() if ts_utc_val is not None and hasattr(ts_utc_val, "isoformat") else str(ts_utc_val)
+        result.append({
+            "ts_utc": ts_str,
+            "equity": float(equity_val) if equity_val is not None else None,
+            "drawdown": float(drawdown_val) if drawdown_val is not None else None,
+        })
+
+    log.info("opt_equity.served", run_id=run_id, result_id=result_id, rowcount=len(result))
     return result

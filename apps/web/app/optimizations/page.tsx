@@ -1,27 +1,12 @@
 'use client'
 
-/**
- * /optimizations — Phase 4 optimization leaderboard + Plotly heatmap.
- *
- * Displays OOS-ranked results from completed optimization runs.
- * Uses react-plotly.js via dynamic() with ssr:false to avoid
- * "window is not defined" crash during SSR (plotly.js accesses window at import time).
- *
- * Layout:
- *  - Header with back link
- *  - Run selector (GET /optimizations — poll 2s while any run is "running")
- *  - Leaderboard table (results sorted by oos_sharpe DESC from server)
- *  - Axis selectors + Plotly heatmap (only when selectedRunId is set)
- *
- * Threat mitigation: axis param validation is enforced server-side (T-04-03-01);
- * client only sends axis names from a known dropdown — belt-and-suspenders.
- */
-
 import { Suspense, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { API_BASE } from '@/lib/api'
+import type { EquityPoint } from '@/lib/api'
+import EquityCurve from '@/components/EquityCurve'
 
 // MUST use ssr:false — plotly.js accesses window at module import time (Pitfall 5 / T-04-03-03)
 const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
@@ -97,10 +82,17 @@ async function fetchHeatmap(
   return res.json()
 }
 
+async function fetchResultEquity(runId: string, resultId: string): Promise<EquityPoint[]> {
+  const res = await fetch(`${API_BASE}/optimizations/${runId}/results/${resultId}/equity`)
+  if (!res.ok) throw new Error(`GET opt equity failed: ${res.status}`)
+  return res.json()
+}
+
 // ----------------------------- Component ------------------------------------
 
 export default function OptimizationsPage() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null)
+  const [selectedResultId, setSelectedResultId] = useState<string | null>(null)
   const [axisX, setAxisX] = useState<AxisOption>('atr_stop_mult')
   const [axisY, setAxisY] = useState<AxisOption>('opening_range_minutes')
 
@@ -139,6 +131,13 @@ export default function OptimizationsPage() {
       queryFn: () => fetchHeatmap(selectedRunId!, axisX, axisY),
       enabled: selectedRunId !== null,
     })
+
+  // Fetch OOS equity curve for selected result row
+  const { data: resultEquity } = useQuery<EquityPoint[]>({
+    queryKey: ['opt-result-equity', selectedRunId, selectedResultId],
+    queryFn: () => fetchResultEquity(selectedRunId!, selectedResultId!),
+    enabled: selectedRunId !== null && selectedResultId !== null,
+  })
 
   // ----------------------------- Render -------------------------------------
 
@@ -336,12 +335,18 @@ export default function OptimizationsPage() {
                         // edge_ratio > 2 = overfitting red flag (OPT-07)
                         const edgeFlagged =
                           row.edge_ratio !== null && row.edge_ratio > 2.0
+                        const isSelected = selectedResultId === row.result_id
                         return (
                           <tr
                             key={row.result_id}
+                            onClick={() => setSelectedResultId(row.result_id)}
                             style={{
                               borderBottom: '1px solid #1a1a1a',
-                              backgroundColor: idx % 2 === 0 ? '#050505' : '#000',
+                              backgroundColor: isSelected
+                                ? '#0d1f3c'
+                                : idx % 2 === 0 ? '#050505' : '#000',
+                              cursor: 'pointer',
+                              outline: isSelected ? '1px solid #4a90d9' : 'none',
                             }}
                           >
                             <td style={tdStyle}>{idx + 1}</td>
@@ -530,6 +535,51 @@ export default function OptimizationsPage() {
                 >
                   No heatmap data — run may still be in progress or has no results
                   for these axes.
+                </div>
+              )}
+            </div>
+
+            {/* OOS Equity Curve for selected result row */}
+            <div style={{ marginBottom: '24px' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: '#888',
+                  marginBottom: '8px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                OOS Equity Curve
+                {selectedResultId
+                  ? ' — click a row above to change'
+                  : ' — click a row above to view'}
+              </div>
+
+              {!selectedResultId && (
+                <div
+                  style={{
+                    color: '#444',
+                    fontSize: '12px',
+                    padding: '24px',
+                    border: '1px dashed #222',
+                    borderRadius: '4px',
+                    textAlign: 'center',
+                  }}
+                >
+                  Select a result row to view its OOS equity curve
+                </div>
+              )}
+
+              {selectedResultId && resultEquity && resultEquity.length > 0 && (
+                <div style={{ height: '240px', border: '1px solid #1a1a1a', borderRadius: '4px', overflow: 'hidden' }}>
+                  <EquityCurve points={resultEquity} />
+                </div>
+              )}
+
+              {selectedResultId && resultEquity && resultEquity.length === 0 && (
+                <div style={{ color: '#555', fontSize: '12px', padding: '24px', textAlign: 'center', border: '1px dashed #222', borderRadius: '4px' }}>
+                  No equity data for this result
                 </div>
               )}
             </div>

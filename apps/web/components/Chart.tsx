@@ -14,7 +14,7 @@
  *  - .planning/phases/03-vertical-mvp-slice-backtester/03-RESEARCH.md §lightweight-charts v5.2.0
  */
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   createChart,
   createSeriesMarkers,
@@ -69,7 +69,14 @@ export default function Chart({
   trades = [],
 }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  // Incremented each time a chart is created so the overlay effect re-fires
+  const [chartKey, setChartKey] = useState(0)
 
+  // Effect 1: chart lifecycle — only bars and ORB levels.
+  // Trades are intentionally excluded so a late-arriving trades query does not
+  // destroy and recreate the chart, which caused the second createChart() call
+  // to read clientHeight=0 after chart.remove() cleared the inline container styles.
   useEffect(() => {
     if (!containerRef.current || bars.length === 0) return
 
@@ -107,7 +114,6 @@ export default function Chart({
       }
     )
 
-    // Convert BarRow to lightweight-charts data format (Unix seconds UTC)
     // API returns DESC (most-recent first); lightweight-charts requires ASC
     const chartData = bars
       .map((bar) => ({
@@ -120,7 +126,6 @@ export default function Chart({
       .sort((a, b) => (a.time as number) - (b.time as number))
     candleSeries.setData(chartData)
 
-    // ORB price lines
     if (orbHigh != null) {
       candleSeries.createPriceLine({
         price: orbHigh,
@@ -142,14 +147,35 @@ export default function Chart({
       })
     }
 
-    // Trade stop/target price lines and entry markers
-    // v5 markers plugin — import createSeriesMarkers from 'lightweight-charts' (D-09)
-    // CRITICAL: pass markers directly to the constructor (v5 API, 03-RESEARCH.md Pitfall 2).
-    // The v4 series markers API was removed in v5.2.0 — never call it on a series object.
-    const entryMarkers: SeriesMarker<Time>[] = []
+    chart.timeScale().fitContent()
+    seriesRef.current = candleSeries
 
+    // Signal to Effect 2 that a new series is ready
+    setChartKey((k) => k + 1)
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect
+      if (width > 0 && height > 0) chart.applyOptions({ width, height })
+    })
+    resizeObserver.observe(container)
+
+    return () => {
+      resizeObserver.disconnect()
+      seriesRef.current = null
+      chart.remove()
+    }
+  }, [bars, orbHigh, orbLow])
+
+  // Effect 2: trade overlays — applied imperatively without touching the chart lifecycle.
+  // chartKey in deps re-triggers this effect after a new chart is created in Effect 1,
+  // handling both orderings: trades-before-bars and trades-after-bars.
+  useEffect(() => {
+    const candleSeries = seriesRef.current
+    if (!candleSeries || trades.length === 0) return
+
+    // v5 markers plugin — createSeriesMarkers(series, initialMarkers) (D-09)
+    const entryMarkers: SeriesMarker<Time>[] = []
     for (const trade of trades) {
-      // Entry marker
       const entryTime = Math.floor(
         new Date(trade.entry_ts_utc).getTime() / 1000
       ) as Time
@@ -161,7 +187,6 @@ export default function Chart({
         text: 'Entry',
       })
 
-      // Stop price line (nullable)
       if (trade.stop_price != null) {
         candleSeries.createPriceLine({
           price: trade.stop_price,
@@ -172,8 +197,6 @@ export default function Chart({
           title: 'Stop',
         })
       }
-
-      // Target price line (nullable)
       if (trade.target_price != null) {
         candleSeries.createPriceLine({
           price: trade.target_price,
@@ -185,25 +208,8 @@ export default function Chart({
         })
       }
     }
-
-    // createSeriesMarkers(series, initialMarkers) — v5 named import (03-RESEARCH.md Pitfall 2)
-    // Passing markers directly to constructor is the complete v5 pattern
     createSeriesMarkers(candleSeries, entryMarkers)
-
-    // Fit content on initial render
-    chart.timeScale().fitContent()
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect
-      if (width > 0 && height > 0) chart.applyOptions({ width, height })
-    })
-    resizeObserver.observe(container)
-
-    return () => {
-      resizeObserver.disconnect()
-      chart.remove()
-    }
-  }, [bars, orbHigh, orbLow, trades])
+  }, [trades, chartKey])
 
   return (
     <div

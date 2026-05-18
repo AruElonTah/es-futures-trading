@@ -349,6 +349,11 @@ def main(args: argparse.Namespace) -> int:
             status="running",
         )
 
+        # DuckDB does not allow concurrent access — close the write connection
+        # before spawning worker processes so they can open read-only connections.
+        store.close()
+        store = None
+
         # --- ProcessPoolExecutor dispatch (D-06) ---
         # max_workers = cpu_count - 1 (leaves one core for OS/orchestrator — T-04-02-04)
         max_workers = max(1, (os.cpu_count() or 2) - 1)
@@ -393,6 +398,9 @@ def main(args: argparse.Namespace) -> int:
                     )
                     # Continue collecting other results; this combo is lost
 
+        # --- Reopen DuckDB for final writes ---
+        store = DuckDBStore(duckdb_path)
+
         # --- Aggregate: add run_id and result_id to each row ---
         for row in all_rows:
             row["result_id"] = new_run_id()
@@ -425,7 +433,14 @@ def main(args: argparse.Namespace) -> int:
         log.exception("opt.run.failed", error_type=type(exc).__name__)
         print(f"ERROR: {type(exc).__name__}: {exc}", file=sys.stderr)
 
-        # Update opt_runs status to 'failed' if the row was written
+        # Update opt_runs status to 'failed' if the row was written.
+        # store may be None if the failure occurred during the worker phase
+        # (we closed it before dispatching); reopen in that case.
+        if store is None:
+            try:
+                store = DuckDBStore(duckdb_path)
+            except Exception:
+                store = None
         if store is not None:
             try:
                 store._conn.execute(

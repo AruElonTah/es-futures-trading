@@ -26,11 +26,17 @@ log = get_logger(__name__)
 # Anchor to the repo root by walking upward until pyproject.toml is found
 # rather than hard-coding a parent count that breaks on directory restructures (WR-001).
 def _find_repo_root(start: Path) -> Path:
-    """Walk upward from *start* until a directory containing pyproject.toml is found."""
+    """Walk upward from *start* to the outermost directory containing pyproject.toml (repo root).
+
+    Continues past inner package pyproject.toml files to find the true repo root.
+    """
+    found: Path | None = None
     for candidate in [start, *start.parents]:
         if (candidate / "pyproject.toml").exists():
-            return candidate
-    raise RuntimeError(f"Could not locate repo root from {start}")
+            found = candidate
+    if found is None:
+        raise RuntimeError(f"Could not locate repo root from {start}")
+    return found
 
 _EQUITY_ROOT: Path = (
     _find_repo_root(Path(__file__).resolve()) / "data" / "parquet" / "equity"
