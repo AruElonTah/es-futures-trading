@@ -168,11 +168,62 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.eod_task = asyncio.create_task(_scheduler.run())
     _log.info("eod_scheduler.started")
 
+    # -----------------------------------------------------------------------
+    # Phase 6 Plan 02: TVBridge — long-lived supervised MCP stdio client
+    # -----------------------------------------------------------------------
+    from tv_bridge import TVBridge  # noqa: PLC0415
+
+    _tv_bridge_ref = TVBridge(
+        store=app.state.store, bus=app.state.bus, settings=_settings
+    )
+    await _tv_bridge_ref.start()
+    app.state.tv_bridge = _tv_bridge_ref
+    _log.info("tv_bridge.started")
+
+    # -----------------------------------------------------------------------
+    # Phase 6 Plan 03: ReconciliationScheduler — daily 16:10 ET SPY cross-vendor
+    # -----------------------------------------------------------------------
+    from datetime import date as _date  # noqa: PLC0415
+
+    from trading_core.data.tradingview import TradingViewDataSource  # noqa: PLC0415
+    from trading_core.data.twelvedata import TwelveDataSource  # noqa: PLC0415
+    from tv_bridge import ReconciliationScheduler, run_reconciliation  # noqa: PLC0415
+
+    # WARNING 3 fix: reconciliation uses TradingViewDataSource (per-call subprocess),
+    # NOT the shared TVBridge session, to avoid contention with live drawing.
+    _tv_recon_source = TradingViewDataSource(_settings, bus=app.state.bus)
+    _twelve_source = TwelveDataSource(_settings)
+
+    async def _do_reconcile() -> None:
+        await run_reconciliation(
+            tv_source=_tv_recon_source,
+            twelve_source=_twelve_source,
+            store=app.state.store,
+            trading_date=_date.today(),
+        )
+
+    _recon_scheduler = ReconciliationScheduler(on_reconcile=_do_reconcile)
+    app.state.recon_task = asyncio.create_task(
+        _recon_scheduler.run(), name="reconciliation_scheduler"
+    )
+    _log.info("reconciliation_scheduler.started")
+
     yield
 
     # -----------------------------------------------------------------------
     # Shutdown — cancel background tasks in reverse startup order
     # -----------------------------------------------------------------------
+    # Cancel reconciliation scheduler (Phase 6 Plan 03)
+    app.state.recon_task.cancel()
+    try:
+        await app.state.recon_task
+    except asyncio.CancelledError:
+        pass
+
+    # Stop TVBridge (Phase 6 Plan 02)
+    await _tv_bridge_ref.stop()
+    _log.info("tv_bridge.stopped")
+
     app.state.eod_task.cancel()
     try:
         await app.state.eod_task
