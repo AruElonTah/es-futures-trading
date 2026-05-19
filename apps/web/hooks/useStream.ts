@@ -20,6 +20,8 @@ export function useStream() {
   const setConnected = useWsStore((s) => s.setConnected)
   const setLastBarAt = useWsStore((s) => s.setLastBarAt)
   const setDegraded = useWsStore((s) => s.setDegraded)
+  const setEngineState = useWsStore((s) => s.setEngineState)
+  const setPositions = useWsStore((s) => s.setPositions)
 
   useEffect(() => {
     const ws = new WebSocket(`${WS_BASE}/stream`)
@@ -58,8 +60,15 @@ export function useStream() {
             reason: (msg.payload.reason as string) ?? '',
           })
           break
+        case 'engine_state_changed':
+          setEngineState(msg.payload.state as 'running' | 'paused' | 'killed')
+          break
+        case 'positions':
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setPositions(msg.payload as any)
+          break
         default:
-          // TODO (Phase 7): route fills, positions, equity, signals to queryClient
+          // TODO (Phase 7): route fills, equity, signals to queryClient
           break
       }
     }
@@ -67,5 +76,5 @@ export function useStream() {
     return () => {
       ws.close()
     }
-  }, [setConnected, setLastBarAt, setDegraded])
+  }, [setConnected, setLastBarAt, setDegraded, setEngineState, setPositions])
 }

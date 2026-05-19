@@ -25,6 +25,21 @@ export interface WsState {
   connected: boolean
   lastBarAt: number | null
   degraded: DegradedState | null
+  engineState: 'running' | 'paused' | 'killed'
+  positions: Position[]
+}
+
+export interface Position {
+  strategy_id: string
+  symbol: string
+  side: 'long' | 'short'
+  qty: number
+  avg_fill: number
+  mark: number
+  stop: number
+  target: number
+  entry_ts_utc: string
+  point_value: number
 }
 
 export interface WsActions {
@@ -32,6 +47,8 @@ export interface WsActions {
   setLastBarAt: (ts: number) => void
   setDegraded: (value: DegradedState) => void
   clearDegraded: () => void
+  setEngineState: (s: 'running' | 'paused' | 'killed') => void
+  setPositions: (p: Position[]) => void
 }
 
 export type WsStore = WsState & WsActions
@@ -40,11 +57,15 @@ export const useWsStore = create<WsStore>()((set) => ({
   connected: false,
   lastBarAt: null,
   degraded: null,
+  engineState: 'running',
+  positions: [],
 
   setConnected: (v: boolean) => set({ connected: v }),
   setLastBarAt: (ts: number) => set({ lastBarAt: ts }),
   setDegraded: (value: DegradedState) => set({ degraded: value }),
   clearDegraded: () => set({ degraded: null }),
+  setEngineState: (s: 'running' | 'paused' | 'killed') => set({ engineState: s }),
+  setPositions: (p: Position[]) => set({ positions: p }),
 }))
 
 /**
