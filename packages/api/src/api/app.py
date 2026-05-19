@@ -59,6 +59,7 @@ from api.routes import backtests as backtests_routes
 from api.routes import bars as bars_routes
 from api.routes import optimizations as optimizations_routes
 from api.routes import risk as risk_routes
+from api.routes import tv as tv_routes
 from api.ws import ConnectionManager
 
 __all__ = ["app"]
@@ -274,7 +275,7 @@ def health() -> dict[str, str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )
@@ -283,6 +284,7 @@ app.include_router(bars_routes.router)
 app.include_router(backtests_routes.router)
 app.include_router(optimizations_routes.router)
 app.include_router(risk_routes.router)
+app.include_router(tv_routes.router)
 
 
 @app.websocket("/stream")

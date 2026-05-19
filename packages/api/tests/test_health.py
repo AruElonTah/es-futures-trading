@@ -81,6 +81,8 @@ def test_phase3_endpoints_registered() -> None:
     #   /optimizations/{run_id}/heatmap,
     #   /optimizations/{run_id}/results/{result_id}/equity,
     #   /positions, /kill, /flatten, /pause (Phase 5 risk controls + blotter)
+    # Phase 6 Plan 02 surface (TV-03, TV-05, TV-07):
+    #   /tv/focus, /tv/alerts, /tv/alerts/{alert_id}, /tv/status
     expected = sorted([
         "/backtests",
         "/backtests/{run_id}/equity",
@@ -97,6 +99,11 @@ def test_phase3_endpoints_registered() -> None:
         "/kill",
         "/flatten",
         "/pause",
+        # Phase 6 Plan 02: TV routes
+        "/tv/focus",
+        "/tv/alerts",
+        "/tv/alerts/{alert_id}",
+        "/tv/status",
     ])
     assert user_paths == expected, (
         f"Phase 5 app must expose exactly {expected}; "

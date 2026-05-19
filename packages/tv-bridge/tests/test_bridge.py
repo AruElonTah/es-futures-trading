@@ -355,12 +355,44 @@ async def test_draw_timeout_nonblocking(
 
 
 # ---------------------------------------------------------------------------
-# Task 3 (stub): test_focus_call_sequence — TV-05 sequence contract
-# BLOCKER 1 fix: proves chart_set_symbol → chart_set_timeframe → chart_scroll_to_date order
-# Converted in Task 3
+# Task 3: test_focus_call_sequence — TV-05 sequence contract (BLOCKER 1 fix)
+# Proves chart_set_symbol → chart_set_timeframe → chart_scroll_to_date ordering
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="implemented in Task 3 of Plan 02 (focus method)", strict=True)
-async def test_focus_call_sequence(bridge: TVBridge) -> None:
-    """focus() calls chart_set_symbol → chart_set_timeframe → chart_scroll_to_date in order."""
-    pytest.fail("Task 3 of Plan 02 implements")
+async def test_focus_call_sequence(
+    in_memory_store: DuckDBStore,
+    mock_settings,
+    mock_mcp_session: AsyncMock,
+) -> None:
+    """focus() calls chart_set_symbol → chart_set_timeframe → chart_scroll_to_date in order.
+
+    BLOCKER 1 fix: verifies TV-05 ordered sequence contract without a live TV session.
+
+    Assertions:
+    - call_tool was awaited exactly 3 times
+    - Call 1: ("chart_set_symbol", {...})
+    - Call 2: ("chart_set_timeframe", {...})
+    - Call 3: ("chart_scroll_to_date", {...})
+    """
+    bridge = TVBridge(store=in_memory_store, bus=EventBus(), settings=mock_settings)
+    # Inject mock session
+    bridge._session = mock_mcp_session
+
+    await bridge.focus("ES", "2024-06-12", "1")
+
+    # Verify exactly 3 calls
+    assert mock_mcp_session.call_tool.await_count == 3, (
+        f"Expected 3 call_tool awaits, got {mock_mcp_session.call_tool.await_count}"
+    )
+
+    # Verify call order via call_args_list
+    calls = mock_mcp_session.call_tool.call_args_list
+    assert calls[0].args[0] == "chart_set_symbol", (
+        f"Call 1 should be chart_set_symbol, got {calls[0].args[0]!r}"
+    )
+    assert calls[1].args[0] == "chart_set_timeframe", (
+        f"Call 2 should be chart_set_timeframe, got {calls[1].args[0]!r}"
+    )
+    assert calls[2].args[0] == "chart_scroll_to_date", (
+        f"Call 3 should be chart_scroll_to_date, got {calls[2].args[0]!r}"
+    )
