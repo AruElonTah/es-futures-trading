@@ -72,24 +72,30 @@ export default function EquityCurve({ points }: EquityCurveProps) {
       },
     })
 
+    // Plot PnL relative to starting equity so a flat/zero-trade curve renders as
+    // a visible centered horizontal line rather than a thin sliver at the top edge.
+    // Both series share the right scale so a zero-trade backtest shows both at 0
+    // in the center rather than at opposite extremes.
+    const startEquity = points[0]?.equity ?? 0
+
     // Primary equity line (blue)
     const equitySeries = chart.addSeries(LineSeries, {
       color: '#2962FF',
       lineWidth: 2,
-      title: 'Equity $',
+      title: 'PnL $',
     })
 
     // Secondary drawdown line (light red)
     const drawdownSeries = chart.addSeries(LineSeries, {
-      color: '#ef535080',
+      color: '#ef5350',
       lineWidth: 1,
-      title: 'Drawdown $',
+      title: 'DD $',
     })
 
     equitySeries.setData(
       points.map((p) => ({
         time: Math.floor(new Date(p.ts_utc).getTime() / 1000) as Time,
-        value: p.equity,
+        value: p.equity - startEquity,
       }))
     )
     drawdownSeries.setData(
