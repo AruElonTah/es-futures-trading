@@ -184,3 +184,30 @@ CREATE TABLE IF NOT EXISTS engine_state (
     ts_utc     TIMESTAMPTZ    NOT NULL,
     state      VARCHAR        NOT NULL        -- 'running' | 'killed' | 'paused' | 'flatten_requested'
 );
+
+-- Phase 6: TV overlay registry (TV-02).
+-- One row per shape drawn on the TV chart via draw_shape MCP tool.
+-- shape_id is populated from the entity_id field in the draw_shape response.
+-- deleted_at NULL = active; set by nightly cleanup task (Plan 04).
+CREATE TABLE IF NOT EXISTS tv_overlays (
+    overlay_id    VARCHAR     PRIMARY KEY,          -- uuid7 (time-sortable)
+    strategy_id   VARCHAR     NOT NULL,
+    signal_id     VARCHAR     NOT NULL,             -- soft FK to audit_log.entity_id
+    shape_kind    VARCHAR     NOT NULL,             -- 'entry_arrow'|'stop_line'|'target_line'|'orb_box'
+    shape_id      VARCHAR     NOT NULL,             -- entity_id from draw_shape MCP response
+    trading_date  DATE        NOT NULL,             -- ET trading date the shape belongs to
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at    TIMESTAMPTZ                       -- NULL = active; set by nightly cleanup
+);
+
+-- Phase 6: TV alert registry (TV-07).
+-- One row per alert created via alert_create MCP tool.
+-- deleted_at NULL = active; set when strategy toggled off.
+CREATE TABLE IF NOT EXISTS tv_alerts (
+    alert_id      VARCHAR     PRIMARY KEY,          -- uuid7
+    strategy_id   VARCHAR     NOT NULL,
+    tv_alert_id   VARCHAR     NOT NULL,             -- alert ID returned by alert_create MCP tool
+    condition     VARCHAR     NOT NULL,             -- free-form alert condition description
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at    TIMESTAMPTZ                       -- NULL = active; set on strategy toggle-off
+);

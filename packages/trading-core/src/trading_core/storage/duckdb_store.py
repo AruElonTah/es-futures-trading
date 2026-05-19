@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import csv
 import threading
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -180,6 +180,36 @@ VALUES (?, ?, now(), ?);
 
 GET_ENGINE_STATE_SQL = """
 SELECT state FROM engine_state ORDER BY ts_utc DESC LIMIT 1;
+"""
+
+# Phase 6: TV overlay + alert SQL constants (TV-02, TV-07).
+# All new DuckDBStore methods use parameterized ? binding — no f-string SQL
+# construction — enforcing T-06-01-04 (no SQL injection via caller-supplied strings).
+
+WRITE_TV_OVERLAY_SQL = """
+INSERT INTO tv_overlays (overlay_id, strategy_id, signal_id, shape_kind, shape_id, trading_date)
+VALUES (?, ?, ?, ?, ?, ?);
+"""
+
+WRITE_TV_ALERT_SQL = """
+INSERT INTO tv_alerts (alert_id, strategy_id, tv_alert_id, condition)
+VALUES (?, ?, ?, ?);
+"""
+
+MARK_TV_ALERT_DELETED_SQL = """
+UPDATE tv_alerts SET deleted_at = now() WHERE alert_id = ?;
+"""
+
+COUNT_ACTIVE_OVERLAYS_SQL = """
+SELECT COUNT(*) FROM tv_overlays WHERE deleted_at IS NULL;
+"""
+
+GET_TV_ALERT_TV_ID_SQL = """
+SELECT tv_alert_id FROM tv_alerts WHERE alert_id = ?;
+"""
+
+LIST_OVERLAYS_OLDER_THAN_SQL = """
+SELECT overlay_id, shape_id FROM tv_overlays WHERE deleted_at IS NULL AND trading_date < ?;
 """
 
 # Audit CSV header — matches audit_log column order.
@@ -711,6 +741,83 @@ class DuckDBStore:
         if row is None:
             return "running"
         return str(row[0])
+
+    # ---- Phase 6: TV overlay + alert writers (TV-02, TV-07) ----------------
+
+    def write_tv_overlay(
+        self,
+        *,
+        overlay_id: str,
+        strategy_id: str,
+        signal_id: str,
+        shape_kind: str,
+        shape_id: str,
+        trading_date: date,
+    ) -> None:
+        """Persist one TV overlay row to ``tv_overlays``.
+
+        All parameters are keyword-only. Uses parameterized ``?`` binding
+        (T-06-01-04 — no f-string SQL construction; all caller-supplied strings
+        go through DuckDB parameter binding).
+        """
+        self._conn.execute(
+            WRITE_TV_OVERLAY_SQL,
+            [overlay_id, strategy_id, signal_id, shape_kind, shape_id, trading_date],
+        )
+
+    def write_tv_alert(
+        self,
+        *,
+        alert_id: str,
+        strategy_id: str,
+        tv_alert_id: str,
+        condition: str,
+    ) -> None:
+        """Persist one TV alert row to ``tv_alerts``."""
+        self._conn.execute(
+            WRITE_TV_ALERT_SQL,
+            [alert_id, strategy_id, tv_alert_id, condition],
+        )
+
+    def mark_tv_alert_deleted(self, *, alert_id: str) -> None:
+        """Set ``deleted_at = now()`` on the given ``tv_alerts`` row."""
+        self._conn.execute(MARK_TV_ALERT_DELETED_SQL, [alert_id])
+
+    def mark_tv_overlay_deleted(self, *, overlay_id: str) -> None:
+        """Set ``deleted_at = now()`` on the given ``tv_overlays`` row.
+
+        Used by Plan 04's nightly cleanup task to mark expired overlay rows
+        without deleting them (preserves forensic history).
+        """
+        self._conn.execute(
+            "UPDATE tv_overlays SET deleted_at = now() WHERE overlay_id = ?;",
+            [overlay_id],
+        )
+
+    def count_active_overlays(self) -> int:
+        """Return the count of tv_overlays rows where ``deleted_at IS NULL``."""
+        row = self._conn.execute(COUNT_ACTIVE_OVERLAYS_SQL).fetchone()
+        return int(row[0]) if row is not None else 0
+
+    def get_tv_alert_tv_id(self, alert_id: str) -> str | None:
+        """Return the ``tv_alert_id`` for the given ``alert_id``, or None.
+
+        Returns the value even if ``deleted_at`` is set — the caller reads
+        ``deleted_at`` separately if needed to distinguish active vs deleted.
+        """
+        row = self._conn.execute(GET_TV_ALERT_TV_ID_SQL, [alert_id]).fetchone()
+        return str(row[0]) if row is not None else None
+
+    def list_overlays_older_than(self, trading_date: date) -> list[tuple[str, str]]:
+        """Return (overlay_id, shape_id) pairs for active overlays older than ``trading_date``.
+
+        Used by Plan 04's nightly cleanup to enumerate shapes that need to
+        be removed from the TV chart (deleted_at IS NULL AND trading_date < ?).
+        """
+        rows = self._conn.execute(
+            LIST_OVERLAYS_OLDER_THAN_SQL, [trading_date]
+        ).fetchall()
+        return [(str(r[0]), str(r[1])) for r in rows]
 
     # ---- context manager + close -----------------------------------------
 
