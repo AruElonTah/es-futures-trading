@@ -226,6 +226,14 @@ Plans:
 - TV is a **subscriber on the bus**, never a pipeline step — Anti-Pattern 4. The trading engine must not block on `await tv.draw_shape(...)`.
 - TV failure mode: when TV is the active `DataSource` (set in Phase 1), the engine refuses to emit signals while MCP is disconnected and the UI shows the degradation banner; when TV is only the **output surface** (e.g. running on `TwelveDataSource`), MCP errors are logged but never propagated.
 
+**Plans:** 4 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Schema DDL (tv_overlays + tv_alerts) + DuckDBStore TV methods + TVBridge skeleton + Wave 0 test stubs + draw_shape entity_id verification (Wave 1)
+- [ ] 06-02-PLAN.md — Full TVBridge supervisor + bus subscribers + draw_shape orchestration + 200-cap + POST /tv/focus, POST /tv/alerts, DELETE /tv/alerts/{id} + lifespan wiring (Wave 2)
+- [ ] 06-03-PLAN.md — TVReplayDataSource (DataSource protocol) + run_backtest --data-source tv-replay + run_reconciliation + ReconciliationScheduler (Wave 3)
+- [ ] 06-04-PLAN.md — nightly_cleanup scheduler + AuthorTVAlertButton frontend + failure-isolation integration test + human-verify checkpoint (Wave 4)
+
 ---
 
 ### Phase 7: Bloomberg-Density UI Polish
@@ -294,7 +302,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 3. Vertical MVP Slice + Backtester | 5/5 | Complete   | 2026-05-17 |
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
 | 5. Risk Manager + Full Audit + Controls | 0/5 | Planned | - |
-| 6. TradingView MCP Bridge | 0/TBD | Not started | - |
+| 6. TradingView MCP Bridge | 0/4 | Planned | - |
 | 7. Bloomberg-Density UI Polish | 0/TBD | Not started | - |
 | 8. Operational Hardening + Reproducibility CI | 0/TBD | Not started | - |
 
