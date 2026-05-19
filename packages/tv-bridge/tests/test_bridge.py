@@ -13,9 +13,7 @@ Real tests (Wave 2 / Plan 02):
     - test_draw_timeout_nonblocking   (Task 2 — bus subscriber non-blocking)
     - test_focus_call_sequence        (Task 3 — TV-05 sequence contract)
 
-Xfail stubs (Task 2/3 will convert):
-    - test_draw_on_signal
-    - test_draw_timeout_nonblocking
+Xfail stubs (Task 3 will convert):
     - test_focus_call_sequence
 """
 
@@ -30,8 +28,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from trading_core.events import TOPIC_DEGRADED_STATE, EventBus
+from trading_core.events import TOPIC_DEGRADED_STATE, TOPIC_SIGNALS, EventBus
 from trading_core.strategy.models import Signal
+from trading_core.storage.duckdb_store import DuckDBStore
 from tv_bridge import TVBridge
 
 
@@ -67,13 +66,13 @@ async def test_start_creates_supervisor_task(bridge: TVBridge) -> None:
 # ---------------------------------------------------------------------------
 
 async def test_reconnect(
-    in_memory_store,
+    in_memory_store: DuckDBStore,
     mock_settings,
 ) -> None:
     """TVBridge reconnects after session drop with capped exponential backoff.
 
     Simulates:
-    1. First connect: health-gate raises RuntimeError (simulates failed health check).
+    1. First connect: health-gate returns api_available=False, raises RuntimeError.
     2. After failure: DegradedStateEvent published, backoff tracked.
     3. Verifies: backoff value comes from _BACKOFF_SECONDS[0] = 1s on first attempt.
     """
@@ -98,8 +97,6 @@ async def test_reconnect(
     sleep_calls: list[float] = []
     # Event to signal when the first sleep happens (first reconnect attempt)
     sleep_event = asyncio.Event()
-    # Event to stop the supervisor after first backoff
-    stop_event = asyncio.Event()
 
     original_sleep = asyncio.sleep
 
@@ -110,11 +107,10 @@ async def test_reconnect(
         # Don't actually sleep long — just yield control briefly
         await original_sleep(0.001)
 
-    # Build a session mock that fails health check
+    # Build a session mock that fails health check (api_available=False)
     def _make_failing_session():
         session = AsyncMock()
         session.initialize = AsyncMock(return_value=None)
-        # Health check response: api_available = False => RuntimeError
         content_item = MagicMock()
         content_item.text = '{"api_available": false}'
         result = MagicMock()
@@ -170,19 +166,192 @@ async def test_reconnect(
 
 # ---------------------------------------------------------------------------
 # Task 2: test_draw_on_signal — bus subscribers + safe draw
-# (Converted in Task 2 — left as xfail until then)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.xfail(reason="implemented in Task 2 of Plan 02", strict=True)
-async def test_draw_on_signal(bridge: TVBridge) -> None:
-    """draw_shape calls fired for entry_arrow + stop_line + target_line + orb_box after signal event."""
-    pytest.fail("Task 2 of Plan 02 implements")
+async def test_draw_on_signal(
+    in_memory_store: DuckDBStore,
+    mock_settings,
+    mock_mcp_session: AsyncMock,
+) -> None:
+    """Four draw_shape calls fired after Signal on TOPIC_SIGNALS; 4 tv_overlays rows written.
+
+    Steps:
+    1. Start bridge with mocked session injected (_session = mock_mcp_session).
+    2. Patch mock_mcp_session.call_tool to return {"entity_id": "tv_42"}.
+    3. Publish a Signal on TOPIC_SIGNALS via real EventBus.
+    4. Await one event-loop cycle for create_task to fire.
+    5. Assert: 4 draw_shape calls, 4 tv_overlays rows with distinct shape_kinds.
+    """
+    # Configure mock_mcp_session to return a valid entity_id
+    content_item = MagicMock()
+    content_item.text = '{"entity_id": "tv_42", "success": true}'
+    result = MagicMock()
+    result.content = [content_item]
+    mock_mcp_session.call_tool.return_value = result
+
+    real_bus = EventBus()
+    bridge = TVBridge(store=in_memory_store, bus=real_bus, settings=mock_settings)
+
+    # Inject mock session directly (bypass supervisor loop)
+    bridge._session = mock_mcp_session
+
+    # Start subscriber tasks (not supervisor)
+    bridge._sig_task = asyncio.create_task(
+        bridge._subscribe_signals(), name="tv_bridge.sig_sub"
+    )
+    bridge._fill_task = asyncio.create_task(
+        bridge._subscribe_fills(), name="tv_bridge.fill_sub"
+    )
+
+    # Give subscriber coroutines time to enter the bus.subscribe() context manager.
+    # EventBus.subscribe is an asynccontextmanager that acquires a lock (2+ yield points)
+    # before yielding the Subscription. Need at least 3 event-loop ticks.
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+    signal = Signal(
+        strategy_id="orb_v1",
+        strategy_version="1.0",
+        ts_utc=datetime(2024, 6, 12, 14, 30, 0, tzinfo=timezone.utc),
+        side="long",
+        entry=Decimal("5500.00"),
+        stop=Decimal("5490.00"),
+        target=Decimal("5520.00"),
+        size_hint=Decimal("1"),
+        signal_id="sig-draw-test",
+    )
+
+    # Publish signal to bus
+    await real_bus.publish(TOPIC_SIGNALS, signal)
+
+    # Give event loop cycles to: process subscriber, create draw task, run draw task
+    # Draw tasks run as fire-and-forget; we wait for them to complete
+    for _ in range(50):
+        await asyncio.sleep(0)
+
+    # Allow draw tasks to complete (mock calls are async, need event loop cycles)
+    await asyncio.sleep(0.2)
+
+    # Stop subscriber tasks (after draw tasks complete)
+    for t in (bridge._sig_task, bridge._fill_task):
+        if t is not None:
+            t.cancel()
+            try:
+                await t
+            except asyncio.CancelledError:
+                pass
+    bridge._sig_task = None
+    bridge._fill_task = None
+
+    # Verify 4 draw_shape calls were made (orb_box + entry_arrow + stop_line + target_line)
+    # mock_mcp_session.call_tool records calls as call(tool_name, args_dict)
+    # e.g. call('draw_shape', {'shape': 'horizontal_line', ...})
+    shape_calls = [
+        c for c in mock_mcp_session.call_tool.call_args_list
+        if c.args and c.args[0] == "draw_shape"
+    ]
+
+    assert len(shape_calls) == 4, (
+        f"Expected 4 draw_shape calls, got {len(shape_calls)}. "
+        f"All calls: {[str(c) for c in mock_mcp_session.call_tool.call_args_list]}"
+    )
+
+    # Verify 4 tv_overlays rows with distinct shape_kinds
+    rows = in_memory_store._conn.execute(
+        "SELECT shape_kind FROM tv_overlays WHERE signal_id = 'sig-draw-test'"
+    ).fetchall()
+    shape_kinds = {r[0] for r in rows}
+    assert len(rows) == 4, f"Expected 4 tv_overlays rows, got {len(rows)}"
+    expected_kinds = {"entry_arrow", "stop_line", "target_line", "orb_box"}
+    assert shape_kinds == expected_kinds, (
+        f"Expected shape_kinds {expected_kinds}, got {shape_kinds}"
+    )
+
+    # Verify semaphore is released (not stuck)
+    assert bridge._draw_semaphore._value == 3, (
+        "draw_semaphore should be fully released after draw completes"
+    )
 
 
-@pytest.mark.xfail(reason="implemented in Task 2 of Plan 02", strict=True)
-async def test_draw_timeout_nonblocking(bridge: TVBridge) -> None:
-    """Bus dispatch not blocked when draw_shape times out; asyncio.create_task returns immediately."""
-    pytest.fail("Task 2 of Plan 02 implements")
+# ---------------------------------------------------------------------------
+# Task 2: test_draw_timeout_nonblocking — bus dispatch not blocked by MCP timeout
+# ---------------------------------------------------------------------------
+
+async def test_draw_timeout_nonblocking(
+    in_memory_store: DuckDBStore,
+    mock_settings,
+    mock_mcp_session: AsyncMock,
+) -> None:
+    """Bus publish returns immediately even when draw_shape times out.
+
+    Behavior:
+    - mock_mcp_session.call_tool() sleeps 20s (forces asyncio.timeout(5s) to fire).
+    - bus.publish() must complete in < 100ms (fire-and-forget via create_task).
+    - Within 6s, an audit_log row with topic='tv_draw_timeout' must appear.
+    """
+    # Make call_tool hang for 20s to force timeout
+    async def _slow_call_tool(*args, **kwargs):
+        await asyncio.sleep(20.0)
+        return MagicMock()  # never reached in this test
+
+    mock_mcp_session.call_tool.side_effect = _slow_call_tool
+
+    real_bus = EventBus()
+    bridge = TVBridge(store=in_memory_store, bus=real_bus, settings=mock_settings)
+    bridge._session = mock_mcp_session
+
+    bridge._sig_task = asyncio.create_task(
+        bridge._subscribe_signals(), name="tv_bridge.sig_sub"
+    )
+
+    # Let subscriber register in the bus (needs 3+ event-loop ticks)
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+    try:
+        signal = Signal(
+            strategy_id="orb_v1",
+            strategy_version="1.0",
+            ts_utc=datetime(2024, 6, 12, 14, 30, 0, tzinfo=timezone.utc),
+            side="long",
+            entry=Decimal("5500.00"),
+            stop=Decimal("5490.00"),
+            target=Decimal("5520.00"),
+            size_hint=Decimal("1"),
+            signal_id="sig-timeout-test",
+        )
+
+        # Publish and time the bus call
+        start = asyncio.get_event_loop().time()
+        await real_bus.publish(TOPIC_SIGNALS, signal)
+        elapsed = asyncio.get_event_loop().time() - start
+
+        # Bus dispatch must return in << 100ms (fire-and-forget, not blocking)
+        assert elapsed < 0.1, (
+            f"bus.publish took {elapsed:.3f}s — should be < 100ms (draw task is create_task, not awaited)"
+        )
+
+        # Give the event loop time to: subscriber receives signal, create_task fires,
+        # safe_draw_signal enters semaphore + timeout block, call_tool hangs,
+        # asyncio.timeout(5s) fires, audit_log written.
+        await asyncio.sleep(6.0)  # wait for 5s timeout + margin
+
+    finally:
+        bridge._sig_task.cancel()
+        try:
+            await bridge._sig_task
+        except asyncio.CancelledError:
+            pass
+        bridge._sig_task = None
+
+    # Audit log row with topic='tv_draw_timeout' must exist
+    audit_row = in_memory_store._conn.execute(
+        "SELECT topic, reason_code FROM audit_log WHERE topic = 'tv_draw_timeout'",
+    ).fetchone()
+    assert audit_row is not None, (
+        "Expected audit_log row with topic='tv_draw_timeout' after 5s MCP timeout"
+    )
+    assert audit_row[1] == "draw_timeout"
 
 
 # ---------------------------------------------------------------------------
