@@ -23,6 +23,7 @@ from trading_core.events import EventBus
 from trading_core.events.models import (
     TOPIC_BARS,
     TOPIC_DEGRADED_STATE,
+    TOPIC_ENGINE_STATE,
     TOPIC_EQUITY,
     TOPIC_FILLS,
     TOPIC_POSITIONS,
@@ -33,7 +34,8 @@ from trading_core.logging import get_logger
 
 log = get_logger(__name__)
 
-# D-04: all 7 EventBus topics that /stream mirrors to every connected client
+# D-04: all 8 EventBus topics that /stream mirrors to every connected client
+# Phase 5 adds TOPIC_ENGINE_STATE for kill/flatten/pause notifications to the blotter.
 ALL_TOPICS: tuple[str, ...] = (
     TOPIC_BARS,
     TOPIC_SIGNALS,
@@ -42,6 +44,7 @@ ALL_TOPICS: tuple[str, ...] = (
     TOPIC_POSITIONS,
     TOPIC_EQUITY,
     TOPIC_DEGRADED_STATE,
+    TOPIC_ENGINE_STATE,
 )
 
 
@@ -86,12 +89,19 @@ class ConnectionManager:
                 async with self._bus.subscribe(topic) as sub:
                     async for event in sub:
                         # D-05 envelope: {"type": "<topic>", "payload": {...}}
-                        msg = json.dumps(
-                            {
-                                "type": event.topic,
-                                "payload": event.model_dump(mode="json"),
-                            }
-                        )
+                        # EventBus accepts both typed Event subclasses (topic + model_dump)
+                        # and plain dicts (e.g. TOPIC_ENGINE_STATE publish from risk routes).
+                        if isinstance(event, dict):
+                            # Plain dict published directly — already has the
+                            # {type, payload} envelope from the publish site.
+                            msg = json.dumps(event)
+                        else:
+                            msg = json.dumps(
+                                {
+                                    "type": event.topic,
+                                    "payload": event.model_dump(mode="json"),
+                                }
+                            )
                         # D-06: per-client asyncio.Queue fan-out, no broadcaster dep.
                         for q in list(self._clients):
                             await q.put(msg)
