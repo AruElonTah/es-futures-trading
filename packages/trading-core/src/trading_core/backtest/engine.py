@@ -34,10 +34,11 @@ import pyarrow.parquet as pq
 
 from trading_core.backtest.safe_signals import safe_from_signals
 from trading_core.data.models import Bar
+from trading_core.events.models import TOPIC_AUDIT, TOPIC_FILLS, TOPIC_RISK_DECISIONS
 from trading_core.execution.paper import PaperExecutor
 from trading_core.instruments import get as get_instrument
 from trading_core.logging import get_logger
-from trading_core.risk.models import RiskConfig, RiskState
+from trading_core.risk.models import DrawdownModel, RiskConfig, RiskState
 from trading_core.risk.pass_through import PassThroughRiskManager
 from trading_core.storage.runs import new_run_id
 from trading_core.strategy.models import StrategyContext
@@ -140,6 +141,7 @@ class BacktestEngine:
         executor: PaperExecutor,
         seed: int = 42,
         init_cash: float = 10_000.0,
+        bus=None,
     ) -> BacktestResult:
         """Run a hybrid backtest over the given bar sequence.
 
@@ -156,6 +158,10 @@ class BacktestEngine:
             executor:     PaperExecutor or equivalent.
             seed:         RNG seed for VBT reproducibility (default 42).
             init_cash:    Starting cash (default 10_000.0).
+            bus:          EventBus | None — when provided, TOPIC_AUDIT events are
+                          published at signal/risk_decision/fill points for WS
+                          notification. Bus subscribers MUST NOT write to DuckDB;
+                          DuckDB writes are owned by FullRiskManager.check() only.
 
         Returns:
             BacktestResult with trades, metrics, equity_df.
@@ -215,11 +221,64 @@ class BacktestEngine:
 
             # Step 4: process entry signal
             if signal is not None and open_position is None and i + 1 < n:
-                state = RiskState()
+                # Build RiskState from current driver-loop tracking variables (T-05-03-03).
+                # realized_equity reflects all closed trades; no open position at signal time
+                # (gate above ensures open_position is None), so open_exposure_dollars = 0.
+                _dm = getattr(
+                    getattr(risk_manager, '_config', None),
+                    'drawdown_model',
+                    DrawdownModel.TRAILING_INTRADAY,
+                )
+                state = RiskState(
+                    realized_pnl_today=Decimal(str(realized_equity - init_cash)),
+                    equity_high_water=Decimal(str(realized_equity)),
+                    open_exposure_dollars=Decimal("0"),
+                    drawdown_model=_dm,
+                )
                 decision = await risk_manager.check(signal, state)
+                # Publish risk_decision audit event for WS notification (bus = notification-only).
+                # DuckDB writes are owned by FullRiskManager.check() — no double-write here.
+                if bus is not None:
+                    await bus.publish(
+                        TOPIC_AUDIT,
+                        {
+                            "topic": TOPIC_RISK_DECISIONS,
+                            "entity_id": signal.signal_id,
+                            "reason_code": decision.reason,
+                            "payload_json": decision.model_dump_json(),
+                        },
+                    )
                 if decision.approved:
                     next_bar = bars[i + 1]
                     entry_fill = await executor.fill_entry(signal, decision, next_bar)
+                    # Publish entry fill audit event for WS notification.
+                    if bus is not None:
+                        await bus.publish(
+                            TOPIC_AUDIT,
+                            {
+                                "topic": TOPIC_FILLS,
+                                "entity_id": entry_fill.fill_id,
+                                "reason_code": "entry_fill",
+                                "payload_json": entry_fill.model_dump_json(),
+                            },
+                        )
+                    # Notify FullRiskManager of new open position for concurrency tracking.
+                    if hasattr(risk_manager, 'record_position_open'):
+                        _position_info = {
+                            "symbol": self._symbol,
+                            "strategy_id": signal.strategy_id,
+                            "side": signal.side,
+                            "qty": decision.adjusted_size,
+                            "avg_fill": float(entry_fill.fill_price),
+                            "mark": float(entry_fill.fill_price),
+                            "stop": float(signal.stop),
+                            "target": float(signal.target),
+                            "entry_ts_utc": (
+                                entry_fill.ts_utc.isoformat()
+                                if hasattr(entry_fill, 'ts_utc') else ""
+                            ),
+                        }
+                        risk_manager.record_position_open(signal.strategy_id, _position_info)
                     open_position = {
                         "signal": signal,
                         "entry_fill": entry_fill,
@@ -260,6 +319,20 @@ class BacktestEngine:
                         exit_ts_utc=bar.ts_utc,
                         fill_qty=fill_qty,
                     )
+                    # Publish exit fill audit event for WS notification.
+                    if bus is not None:
+                        await bus.publish(
+                            TOPIC_AUDIT,
+                            {
+                                "topic": TOPIC_FILLS,
+                                "entity_id": exit_fill.fill_id,
+                                "reason_code": exit_reason,
+                                "payload_json": exit_fill.model_dump_json(),
+                            },
+                        )
+                    # Notify FullRiskManager that position is now closed.
+                    if hasattr(risk_manager, 'record_position_closed'):
+                        risk_manager.record_position_closed(sig.strategy_id)
 
                     # Compute MAE/MFE manually (Pitfall 6 — not in VBT 1.0.0 OSS)
                     mae, mfe = self._compute_mae_mfe(
