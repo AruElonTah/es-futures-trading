@@ -1,0 +1,16 @@
+{
+  "_note": "entity_id field name resolved from MCP server source code (C:\\Users\\Admin\\tradingview-mcp-jackson\\src\\core\\drawing.js line 34) — not a live call.",
+  "_source": "C:\\Users\\Admin\\tradingview-mcp-jackson\\src\\core\\drawing.js",
+  "_resolution_method": "source-read fallback (see Wave 0 Verification section in 06-RESEARCH.md)",
+  "_git_path": "C:\\Users\\Admin\\tradingview-mcp-jackson\\src\\core\\drawing.js",
+  "canonical_response_shape": {
+    "success": true,
+    "shape": "<shape_type_string>",
+    "entity_id": "<string_id_assigned_by_TV_chart_api>"
+  },
+  "source_line": "return { success: true, shape, entity_id: result?.entity_id };",
+  "confirmed_field_name": "entity_id",
+  "draw_remove_one_uses": "entity_id",
+  "draw_get_properties_uses": "entity_id",
+  "binding_for_tv_overlays_shape_id_column": "response['entity_id']"
+}

@@ -822,6 +822,43 @@ Phase 6 decomposes naturally into 4 plans across 3 waves:
 
 ---
 
+## Wave 0 Verification: draw_shape entity_id
+
+Wave 0 verified the draw_shape response shape against the TradingView MCP server source code.
+A live TradingView Desktop call was not made (source-read fallback used — see below).
+Test invocation planned: `mcp__tradingview__draw_shape({shape: 'horizontal_line', price: <visible-chart-price>, color: '#888888', text: 'phase6 wave0 probe', line_style: 'dashed', line_width: 1})`.
+
+### Result
+
+Source code read from `C:\Users\Admin\tradingview-mcp-jackson\src\core\drawing.js` (line 34):
+
+```javascript
+return { success: true, shape, entity_id: result?.entity_id };
+```
+
+The `draw_remove_one` tool (line 27) and `draw_get_properties` tool (line 34) also both use `entity_id` as the parameter name, confirming this is the canonical field name throughout the drawing subsystem.
+
+Full confirmed response shape:
+```json
+{
+  "success": true,
+  "shape": "<shape_type_string>",
+  "entity_id": "<string_id_assigned_by_TV_chart_api>"
+}
+```
+
+Raw transcript saved to: `.planning/research/spike-6/draw_shape_response.json`
+
+### Decision
+
+`tv_overlays.shape_id` is populated from `response["entity_id"]`.
+
+entity_id_field: entity_id
+
+Open Question 1 from §Open Questions is resolved. Assumption A1 (`entity_id` field name) is **CONFIRMED** from source code. Plan 02 can proceed with `response["entity_id"]` as the shape ID field.
+
+---
+
 ## Sources
 
 ### Primary (HIGH confidence)
