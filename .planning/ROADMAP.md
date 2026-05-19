@@ -27,7 +27,7 @@ Plans:
 - [x] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel (completed 2026-05-17)
 - [x] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap (completed 2026-05-17)
 - [ ] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel
-- [ ] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring
+- [x] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring (completed 2026-05-19)
 - [ ] **Phase 7: Bloomberg-Density UI Polish** - Multi-pane Next.js dark/dense layout, WebSocket reconnect with sequence numbers and snapshot resync, trade history + equity curve panel, strategy controls with hot-reload, full hotkey registry
 - [ ] **Phase 8: Operational Hardening + Reproducibility CI** - `Replay` command with byte-identical audit-log assertion, expanded reproducibility CI on Windows, cross-platform path/encoding tests, backup/retention policy
 
@@ -226,13 +226,13 @@ Plans:
 - TV is a **subscriber on the bus**, never a pipeline step — Anti-Pattern 4. The trading engine must not block on `await tv.draw_shape(...)`.
 - TV failure mode: when TV is the active `DataSource` (set in Phase 1), the engine refuses to emit signals while MCP is disconnected and the UI shows the degradation banner; when TV is only the **output surface** (e.g. running on `TwelveDataSource`), MCP errors are logged but never propagated.
 
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 06-01-PLAN.md — Schema DDL (tv_overlays + tv_alerts) + DuckDBStore TV methods + TVBridge skeleton + Wave 0 test stubs + draw_shape entity_id verification (Wave 1)
-- [ ] 06-02-PLAN.md — Full TVBridge supervisor + bus subscribers + draw_shape orchestration + 200-cap + POST /tv/focus, POST /tv/alerts, DELETE /tv/alerts/{id} + lifespan wiring (Wave 2)
-- [ ] 06-03-PLAN.md — TVReplayDataSource (DataSource protocol) + run_backtest --data-source tv-replay + run_reconciliation + ReconciliationScheduler (Wave 3)
-- [ ] 06-04-PLAN.md — nightly_cleanup scheduler + AuthorTVAlertButton frontend + failure-isolation integration test + human-verify checkpoint (Wave 4)
+- [x] 06-01-PLAN.md — Schema DDL (tv_overlays + tv_alerts) + DuckDBStore TV methods + TVBridge skeleton + Wave 0 test stubs + draw_shape entity_id verification (Wave 1)
+- [x] 06-02-PLAN.md — Full TVBridge supervisor + bus subscribers + draw_shape orchestration + 200-cap + POST /tv/focus, POST /tv/alerts, DELETE /tv/alerts/{id} + lifespan wiring (Wave 2)
+- [x] 06-03-PLAN.md — TVReplayDataSource (DataSource protocol) + run_backtest --data-source tv-replay + run_reconciliation + ReconciliationScheduler (Wave 3)
+- [x] 06-04-PLAN.md — nightly_cleanup scheduler + AuthorTVAlertButton frontend + failure-isolation integration test + human-verify checkpoint (Wave 4)
 
 ---
 
@@ -302,7 +302,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 3. Vertical MVP Slice + Backtester | 5/5 | Complete   | 2026-05-17 |
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
 | 5. Risk Manager + Full Audit + Controls | 0/5 | Planned | - |
-| 6. TradingView MCP Bridge | 0/4 | Planned | - |
+| 6. TradingView MCP Bridge | 4/4 | Complete   | 2026-05-19 |
 | 7. Bloomberg-Density UI Polish | 0/TBD | Not started | - |
 | 8. Operational Hardening + Reproducibility CI | 0/TBD | Not started | - |
 

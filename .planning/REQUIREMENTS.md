@@ -101,12 +101,12 @@ Requirements for initial release. Each maps to roadmap phases. REQ-IDs use the 7
 ### TradingView MCP Integration (TV)
 
 - [ ] **TV-01**: `TVBridge` supervisor process: spawns `tradingview-mcp-jackson` as a stdio subprocess, maintains a long-lived `ClientSession`, auto-restarts on disconnect, exposes typed Python wrappers over the MCP tool surface
-- [ ] **TV-02**: `TVBridge` subscribes to `signals` and `fills` topics on the bus; for each event it draws onto the live TV chart via `draw_shape` (entry arrow, stop line, target line, ORB box at session open)
-- [ ] **TV-03**: Overlay registry table tracks every drawing by `(strategy_id, signal_id, shape_id)`; nightly cleanup removes shapes older than configurable retention (default 5 trading days) and enforces a 200-shape cap
+- [x] **TV-02**: `TVBridge` subscribes to `signals` and `fills` topics on the bus; for each event it draws onto the live TV chart via `draw_shape` (entry arrow, stop line, target line, ORB box at session open)
+- [x] **TV-03**: Overlay registry table tracks every drawing by `(strategy_id, signal_id, shape_id)`; nightly cleanup removes shapes older than configurable retention (default 5 trading days) and enforces a 200-shape cap
 - [ ] **TV-04**: `TVReplayDataSource`: starts a TV replay session at a chosen date, steps bars, exposes them through the `DataSource` protocol so the same `Strategy.on_bar()` consumes them and the user can eyeball the strategy on the exact bars the engine sees
 - [ ] **TV-05**: REST endpoint `POST /tv/focus {symbol, date}` calls `chart_set_symbol` + `chart_set_timeframe` + `chart_scroll_to_date` so the UI date-picker drives the live TV chart
-- [ ] **TV-06**: TV failure is non-blocking for the trading core when TV is not the active data source: MCP errors are logged to the audit log but never propagate up the pipeline; when TV **is** the active `DataSource`, a degradation banner surfaces in the UI and the engine refuses to emit signals until reconnection
-- [ ] **TV-07**: UI button "Author TradingView Alert" calls `alert_create` for the active strategy's threshold condition; alert IDs persisted so they can be deleted on strategy toggle-off
+- [x] **TV-06**: TV failure is non-blocking for the trading core when TV is not the active data source: MCP errors are logged to the audit log but never propagate up the pipeline; when TV **is** the active `DataSource`, a degradation banner surfaces in the UI and the engine refuses to emit signals until reconnection
+- [x] **TV-07**: UI button "Author TradingView Alert" calls `alert_create` for the active strategy's threshold condition; alert IDs persisted so they can be deleted on strategy toggle-off
 
 ## v2 Requirements
 
@@ -249,12 +249,12 @@ Populated 2026-05-14 during roadmap creation. Every v1 REQ-ID maps to exactly on
 | UI-08 | Phase 3 | Pending |
 | UI-09 | Phase 5 | Pending |
 | TV-01 | Phase 6 | Pending |
-| TV-02 | Phase 6 | Pending |
-| TV-03 | Phase 6 | Pending |
+| TV-02 | Phase 6 | Complete |
+| TV-03 | Phase 6 | Complete |
 | TV-04 | Phase 6 | Pending |
 | TV-05 | Phase 6 | Pending |
-| TV-06 | Phase 6 | Pending |
-| TV-07 | Phase 6 | Pending |
+| TV-06 | Phase 6 | Complete |
+| TV-07 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 74 total (note: prior header said 75 — the actual REQ-ID enumeration totals 74; corrected here)
