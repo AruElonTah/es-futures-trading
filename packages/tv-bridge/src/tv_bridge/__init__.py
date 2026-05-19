@@ -1,1 +1,5 @@
-"""tv-bridge: TradingView MCP supervisor home (implementation lands in Phase 6)."""
+"""tv-bridge: TradingView MCP supervised client (Phase 6)."""
+
+from .bridge import TVBridge
+
+__all__ = ["TVBridge"]
