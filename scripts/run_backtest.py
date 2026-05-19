@@ -148,6 +148,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default=10_000.0,
         help="Starting cash for the backtest (default: 10000.0).",
     )
+    p.add_argument(
+        "--data-source",
+        dest="data_source",
+        choices=["duckdb", "tv-replay"],
+        default="duckdb",
+        help=(
+            "Bar source. 'duckdb' (default) reads from local DuckDB; "
+            "'tv-replay' fetches bars via a TradingView Desktop replay session "
+            "(requires TV Desktop running with the tradingview-mcp-jackson server). "
+            "T-06-03-01: choices= whitelist prevents injection."
+        ),
+    )
     return p
 
 
@@ -202,41 +214,79 @@ async def main(args: argparse.Namespace) -> int:
         store = DuckDBStore(duckdb_path)
         store.ensure_schema()
 
-        # Query bars (parameterized — T-03-03-01)
-        df = store._conn.execute(
-            """
-            SELECT symbol, timeframe, ts_utc, open, high, low, close, volume,
-                   rollover_seam, provider
-            FROM bars
-            WHERE symbol = ? AND timeframe = ? AND ts_utc >= ? AND ts_utc < ?
-            ORDER BY ts_utc ASC
-            """,
-            [args.symbol, args.tf, args.frm, args.to],
-        ).fetch_df()
+        if args.data_source == "tv-replay":
+            # TV replay path — requires TradingView Desktop running with
+            # tradingview-mcp-jackson server. Uses a per-call stdio_client subprocess
+            # (independent of any live TVBridge session). T-06-03-01: choices= guard
+            # ensures this branch is only reachable for the whitelisted value.
+            _tv_bridge_src_path = _REPO_ROOT / "packages" / "tv-bridge" / "src"
+            if _tv_bridge_src_path.exists() and str(_tv_bridge_src_path) not in sys.path:
+                sys.path.insert(0, str(_tv_bridge_src_path))
+            from tv_bridge import TVReplayDataSource  # noqa: PLC0415
 
-        if df.empty:
-            raise RuntimeError(
-                f"No bars found for {args.symbol} {args.tf} in [{args.frm}, {args.to}). "
-                "Run seed_bars.py first."
-            )
+            tv_source = TVReplayDataSource(settings=settings)
+            log.info("tv_replay.fetch_bars.start", symbol=args.symbol, tf=args.tf)
+            df = await tv_source.fetch_bars(args.symbol, args.tf, args.frm, args.to)
+            if df.empty:
+                raise RuntimeError(
+                    f"No bars returned from TV replay for {args.symbol} {args.tf} "
+                    f"in [{args.frm}, {args.to}). Ensure TV Desktop is running and "
+                    "replay is positioned at the requested date."
+                )
+            log.info("tv_replay.bars.loaded", row_count=len(df))
+            # Reconstruct Bar objects from tv-replay DataFrame rows.
+            # tv-replay DataFrame has no rollover_seam column — default False.
+            bars: list[Bar] = [
+                Bar(
+                    symbol=str(row.symbol),
+                    timeframe=str(row.timeframe),
+                    ts_utc=row.ts_utc if hasattr(row.ts_utc, "tzinfo") else row.ts_utc.to_pydatetime().astimezone(timezone.utc),
+                    open=Decimal(str(row.open)),
+                    high=Decimal(str(row.high)),
+                    low=Decimal(str(row.low)),
+                    close=Decimal(str(row.close)),
+                    volume=int(row.volume),
+                    rollover_seam=False,
+                )
+                for row in df.itertuples(index=False)
+            ]
+        else:
+            # DuckDB path (default) — reads from local bar store.
+            # Query bars (parameterized — T-03-03-01)
+            df = store._conn.execute(
+                """
+                SELECT symbol, timeframe, ts_utc, open, high, low, close, volume,
+                       rollover_seam, provider
+                FROM bars
+                WHERE symbol = ? AND timeframe = ? AND ts_utc >= ? AND ts_utc < ?
+                ORDER BY ts_utc ASC
+                """,
+                [args.symbol, args.tf, args.frm, args.to],
+            ).fetch_df()
 
-        log.info("bars.loaded", row_count=len(df))
+            if df.empty:
+                raise RuntimeError(
+                    f"No bars found for {args.symbol} {args.tf} in [{args.frm}, {args.to}). "
+                    "Run seed_bars.py first."
+                )
 
-        # Reconstruct Bar objects from DataFrame rows
-        bars: list[Bar] = [
-            Bar(
-                symbol=str(row.symbol),
-                timeframe=str(row.timeframe),
-                ts_utc=row.ts_utc.to_pydatetime().astimezone(timezone.utc) if hasattr(row.ts_utc, "to_pydatetime") else row.ts_utc,
-                open=Decimal(str(row.open)),
-                high=Decimal(str(row.high)),
-                low=Decimal(str(row.low)),
-                close=Decimal(str(row.close)),
-                volume=int(row.volume),
-                rollover_seam=bool(row.rollover_seam),
-            )
-            for row in df.itertuples(index=False)
-        ]
+            log.info("bars.loaded", row_count=len(df))
+
+            # Reconstruct Bar objects from DataFrame rows
+            bars = [
+                Bar(
+                    symbol=str(row.symbol),
+                    timeframe=str(row.timeframe),
+                    ts_utc=row.ts_utc.to_pydatetime().astimezone(timezone.utc) if hasattr(row.ts_utc, "to_pydatetime") else row.ts_utc,
+                    open=Decimal(str(row.open)),
+                    high=Decimal(str(row.high)),
+                    low=Decimal(str(row.low)),
+                    close=Decimal(str(row.close)),
+                    volume=int(row.volume),
+                    rollover_seam=bool(row.rollover_seam),
+                )
+                for row in df.itertuples(index=False)
+            ]
 
         # Load strategy from YAML config
         strategy = StrategyRegistry.load(args.config)

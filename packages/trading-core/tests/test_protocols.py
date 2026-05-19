@@ -220,6 +220,19 @@ _PUBLIC_SURFACE: Final[tuple[str, ...]] = (
 )
 
 
+def test_replay_source_protocol() -> None:
+    """TVReplayDataSource satisfies the DataSource protocol surface (TV-04)."""
+    import inspect
+
+    from trading_core.config import Settings
+    from tv_bridge import TVReplayDataSource
+
+    instance = TVReplayDataSource(settings=Settings())
+    assert instance.name == "tradingview_replay"
+    assert inspect.iscoroutinefunction(instance.fetch_bars)
+    assert inspect.iscoroutinefunction(instance.subscribe_bars)
+
+
 def test_public_surface_importable():
     """Smoke that every documented public name resolves through its package path."""
 
