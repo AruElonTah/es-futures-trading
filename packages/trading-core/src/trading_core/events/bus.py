@@ -24,8 +24,10 @@ import asyncio
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Any
 
-from .models import Event
+from .models import Event, TOPIC_ENGINE_STATE
 
 Topic = str
 
@@ -67,8 +69,11 @@ class EventBus:
         self._subscribers: dict[Topic, list[asyncio.Queue]] = defaultdict(list)
         self._lock = asyncio.Lock()
 
-    async def publish(self, topic: Topic, event: Event) -> None:
+    async def publish(self, topic: Topic, event: Any) -> None:
         """Deliver `event` to every active subscriber on `topic`.
+
+        Accepts any payload type — `Event` subclasses for typed events;
+        plain dicts for lightweight audit notifications (TOPIC_AUDIT).
 
         Idempotent on the "no subscribers" path — returns without raising.
         Per-subscriber `put` calls are awaited in registration order to
@@ -79,6 +84,28 @@ class EventBus:
             queues = list(self._subscribers.get(topic, []))
         for q in queues:
             await q.put(event)
+
+    async def publish_engine_state(self, state: str) -> None:
+        """Publish an engine_state_changed event on TOPIC_ENGINE_STATE.
+
+        Emits the standard WS envelope format expected by the blotter panel:
+            {type: 'engine_state_changed', payload: {state: <state>, ts_utc: <iso>}}
+
+        Args:
+            state: Engine state string — one of 'running', 'killed', 'paused',
+                'flatten_requested'. Callers MUST use these literals to match
+                the engine_state DuckDB table schema (D-11).
+        """
+        await self.publish(
+            TOPIC_ENGINE_STATE,
+            {
+                "type": "engine_state_changed",
+                "payload": {
+                    "state": state,
+                    "ts_utc": datetime.now(tz=timezone.utc).isoformat(),
+                },
+            },
+        )
 
     @asynccontextmanager
     async def subscribe(self, topic: Topic) -> AsyncIterator[Subscription]:

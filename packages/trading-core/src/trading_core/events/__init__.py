@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from .bus import EventBus, Subscription
 from .models import (
+    TOPIC_AUDIT,
     TOPIC_BARS,
     TOPIC_DEGRADED_STATE,
+    TOPIC_ENGINE_STATE,
     TOPIC_EQUITY,
     TOPIC_FILLS,
     TOPIC_POSITIONS,
@@ -27,8 +29,10 @@ __all__ = [
     "Event",
     "EventBus",
     "Subscription",
+    "TOPIC_AUDIT",
     "TOPIC_BARS",
     "TOPIC_DEGRADED_STATE",
+    "TOPIC_ENGINE_STATE",
     "TOPIC_EQUITY",
     "TOPIC_FILLS",
     "TOPIC_POSITIONS",
