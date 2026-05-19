@@ -21,6 +21,7 @@ import { useHotkeys, HOTKEY_REGISTRY } from '@/hooks/useHotkeys'
 import { useWsStore } from '@/store/ws'
 import ETClock from '@/components/ETClock'
 import ConnectionStatus from '@/components/ConnectionStatus'
+import AuthorTVAlertButton from '@/components/AuthorTVAlertButton'
 import { API_BASE } from '@/lib/api'
 
 // ---------------------------------------------------------------------------
@@ -546,7 +547,15 @@ export default function BlotterPage() {
         <EngineStateBadge state={engineState} />
 
         <ETClock />
-        <ConnectionStatus />
+        <div className="flex items-center gap-3">
+          {/* TODO(Phase 7 UI-07): replace hardcoded condition/message with live strategy registry values */}
+          <AuthorTVAlertButton
+            strategyId="orb"
+            condition="ORB long entry threshold"
+            message="ORB strategy alert"
+          />
+          <ConnectionStatus />
+        </div>
       </header>
 
       {/* Positions table */}
