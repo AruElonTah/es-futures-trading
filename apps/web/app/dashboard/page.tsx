@@ -145,10 +145,27 @@ export default function DashboardPage() {
         <ETClock />
         <ConnectionStatus />
 
+        {/* Flex spacer — pushes nav links to the right */}
+        <div style={{ flex: 1 }} />
+
+        <Link
+          href="/dashboard/blotter"
+          style={{
+            color: '#4a90d9',
+            textDecoration: 'none',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            padding: '4px 12px',
+            border: '1px solid #2a5a8a',
+            borderRadius: '4px',
+          }}
+        >
+          Blotter
+        </Link>
+
         <Link
           href="/optimizations"
           style={{
-            marginLeft: 'auto',
             color: '#4a90d9',
             textDecoration: 'none',
             fontSize: '12px',
