@@ -196,6 +196,15 @@ Plans:
 - Per-strategy concurrency cap = 1 active position per strategy ID in v1 (RM-08); multi-strategy is v2.
 - Audit-log writes are synchronous to DuckDB and mirrored to daily CSV — no buffered writes — so they survive `kill -9` (SP-03).
 
+**Plans:** 0/5 plans complete
+
+Plans:
+- [ ] 05-01-PLAN.md -- Schema DDL (risk_state/audit_log/engine_state) + model extensions (DrawdownModel/RiskConfig/RiskState) + DuckDB write methods + config/risk.yaml (Wave 1)
+- [ ] 05-02-PLAN.md -- FullRiskManager TDD: size_for_stop, all 3 DrawdownModel variants, worst-case check, DD circuit breaker, concurrency cap (Wave 2)
+- [ ] 05-03-PLAN.md -- BacktestEngine RiskState population + TOPIC_AUDIT event publishing + EventBus routing verification (Wave 2)
+- [ ] 05-04-PLAN.md -- FastAPI POST /kill + POST /flatten + POST /pause + GET /positions + CORS POST + HWM bootstrap + EOD scheduler (Wave 3)
+- [ ] 05-05-PLAN.md -- Blotter UI + useHotkeys registry + dashboard header Blotter link + kill-9 HWM integration test (Wave 4, has human-verify checkpoint)
+
 ---
 
 ### Phase 6: TradingView MCP Bridge
@@ -284,7 +293,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 2. Strategy Engine + Indicators | 2/2 | Complete   | 2026-05-16 |
 | 3. Vertical MVP Slice + Backtester | 5/5 | Complete   | 2026-05-17 |
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
-| 5. Risk Manager + Full Audit + Controls | 0/TBD | Not started | - |
+| 5. Risk Manager + Full Audit + Controls | 0/5 | Planned | - |
 | 6. TradingView MCP Bridge | 0/TBD | Not started | - |
 | 7. Bloomberg-Density UI Polish | 0/TBD | Not started | - |
 | 8. Operational Hardening + Reproducibility CI | 0/TBD | Not started | - |
