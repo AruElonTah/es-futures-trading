@@ -209,11 +209,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     _log.info("reconciliation_scheduler.started")
 
+    # -----------------------------------------------------------------------
+    # Phase 6 Plan 04: NightlyCleanupScheduler — 03:00 ET daily overlay cleanup
+    # -----------------------------------------------------------------------
+    from tv_bridge import NightlyCleanupScheduler, nightly_cleanup  # noqa: PLC0415
+
+    async def _do_cleanup() -> None:
+        await nightly_cleanup(bridge=app.state.tv_bridge, store=app.state.store)
+
+    _cleanup_scheduler = NightlyCleanupScheduler(on_cleanup=_do_cleanup)
+    app.state.cleanup_task = asyncio.create_task(
+        _cleanup_scheduler.run(), name="nightly_cleanup_scheduler"
+    )
+    _log.info("nightly_cleanup_scheduler.started")
+
     yield
 
     # -----------------------------------------------------------------------
     # Shutdown — cancel background tasks in reverse startup order
     # -----------------------------------------------------------------------
+    # Cancel nightly cleanup scheduler (Phase 6 Plan 04)
+    app.state.cleanup_task.cancel()
+    try:
+        await app.state.cleanup_task
+    except asyncio.CancelledError:
+        pass
+
     # Cancel reconciliation scheduler (Phase 6 Plan 03)
     app.state.recon_task.cancel()
     try:
