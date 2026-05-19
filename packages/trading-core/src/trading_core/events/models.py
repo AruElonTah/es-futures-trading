@@ -28,6 +28,9 @@ TOPIC_FILLS: Final[str] = "fills"
 TOPIC_POSITIONS: Final[str] = "positions"
 TOPIC_EQUITY: Final[str] = "equity"
 TOPIC_DEGRADED_STATE: Final[str] = "degraded_state"
+# Phase 5: Audit log topic (SP-03 / D-09) and engine state change topic (D-10/D-11).
+TOPIC_AUDIT: Final[str] = "audit"
+TOPIC_ENGINE_STATE: Final[str] = "engine_state"
 
 
 class Event(BaseModel):

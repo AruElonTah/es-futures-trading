@@ -23,10 +23,12 @@ The class is usable as a context manager so callers can write::
 
 from __future__ import annotations
 
+import csv
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import duckdb
 
@@ -148,6 +150,43 @@ VALUES (?, ?, ?);
 CHECK_HOLDOUT_QUOTA_SQL = """
 SELECT COUNT(*) FROM holdout_burns WHERE quarter = ?;
 """
+
+# Phase 5: Risk state, audit log, and engine state SQL (D-06/D-07/D-09/D-10/D-11).
+# All three tables are append-only (uuid7 PKs; no upsert needed).
+
+WRITE_RISK_STATE_SQL = """
+INSERT INTO risk_state (
+    id, ts_utc, date, session_id,
+    equity_dollars, realized_pnl_dollars, open_exposure_dollars,
+    hwm_static, floor_static,
+    hwm_trailing_eod, floor_trailing_eod,
+    hwm_trailing_intraday, floor_trailing_intraday
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+"""
+
+WRITE_AUDIT_EVENT_SQL = """
+INSERT INTO audit_log (event_id, ts_utc, topic, entity_id, reason_code, payload_json)
+VALUES (?, ?, ?, ?, ?, ?);
+"""
+
+GET_LAST_RISK_STATE_SQL = """
+SELECT * FROM risk_state WHERE date = ? ORDER BY ts_utc DESC LIMIT 1;
+"""
+
+WRITE_ENGINE_STATE_SQL = """
+INSERT INTO engine_state (id, session_id, ts_utc, state)
+VALUES (?, ?, now(), ?);
+"""
+
+GET_ENGINE_STATE_SQL = """
+SELECT state FROM engine_state ORDER BY ts_utc DESC LIMIT 1;
+"""
+
+# Audit CSV header — matches audit_log column order.
+_AUDIT_CSV_HEADER = ["event_id", "ts_utc", "topic", "entity_id", "reason_code", "payload_json"]
+
+# America/New_York timezone for trading-date derivation.
+_ET = ZoneInfo("America/New_York")
 
 
 class DuckDBStore:
@@ -550,6 +589,128 @@ class DuckDBStore:
         )
         columns = [desc[0] for desc in cursor.description]
         return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+    # ---- Phase 5: risk state, audit log, engine state -------------------
+
+    def write_risk_state(self, row: dict) -> None:
+        """Persist one append-only row to ``risk_state``.
+
+        Args:
+            row: Dict whose keys match the 13 ``risk_state`` column names
+                (id, ts_utc, date, session_id, equity_dollars,
+                realized_pnl_dollars, open_exposure_dollars, hwm_static,
+                floor_static, hwm_trailing_eod, floor_trailing_eod,
+                hwm_trailing_intraday, floor_trailing_intraday).
+
+                Decimal values are converted to ``str`` to preserve precision
+                (DuckDB 1.x does not accept Python Decimal objects directly).
+        """
+        self._conn.execute(
+            WRITE_RISK_STATE_SQL,
+            [
+                str(row["id"]),
+                row["ts_utc"],
+                row["date"],
+                str(row["session_id"]),
+                str(row["equity_dollars"]),
+                str(row["realized_pnl_dollars"]),
+                str(row["open_exposure_dollars"]),
+                str(row["hwm_static"]),
+                str(row["floor_static"]),
+                str(row["hwm_trailing_eod"]),
+                str(row["floor_trailing_eod"]),
+                str(row["hwm_trailing_intraday"]),
+                str(row["floor_trailing_intraday"]),
+            ],
+        )
+
+    def write_audit_event(
+        self,
+        *,
+        event_id: str,
+        ts_utc: datetime,
+        topic: str,
+        entity_id: str,
+        reason_code: str,
+        payload_json: str,
+    ) -> None:
+        """Persist one audit event to DuckDB + daily CSV mirror (SP-03 / D-09).
+
+        Both writes are synchronous — DuckDB INSERT first, then CSV append +
+        explicit flush(). The method blocks until both writes complete so that
+        a ``kill -9`` immediately after the call leaves a committed record in
+        at least one of the two stores.
+
+        The CSV is co-located with the DuckDB file under
+        ``{db_dir}/logs/audit/{YYYY-MM-DD}.csv`` (America/New_York date).
+        """
+        # 1. DuckDB INSERT (committed immediately; no buffering by design).
+        self._conn.execute(
+            WRITE_AUDIT_EVENT_SQL,
+            [event_id, ts_utc, topic, entity_id, reason_code, payload_json],
+        )
+
+        # 2. CSV append — derive ET date for the filename.
+        et_date = ts_utc.astimezone(_ET).date()
+        csv_dir = Path(self._db_path) / ".." / "logs" / "audit"
+        # Resolve relative components so mkdir works correctly.
+        csv_dir = csv_dir.resolve()
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = csv_dir / f"{et_date}.csv"
+
+        write_header = not csv_path.exists() or csv_path.stat().st_size == 0
+        with csv_path.open("a", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            if write_header:
+                writer.writerow(_AUDIT_CSV_HEADER)
+            writer.writerow(
+                [event_id, ts_utc.isoformat(), topic, entity_id, reason_code, payload_json]
+            )
+            fh.flush()
+
+    def get_last_risk_state(self, date_str: str) -> dict | None:
+        """Return the most-recent ``risk_state`` row for ``date_str``, or None.
+
+        Args:
+            date_str: Trading date as ``'YYYY-MM-DD'`` string (ET calendar).
+
+        Returns:
+            Dict keyed by column name, or None if no row exists for that date.
+        """
+        cursor = self._conn.execute(GET_LAST_RISK_STATE_SQL, [date_str])
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        columns = [desc[0] for desc in cursor.description]
+        return dict(zip(columns, row))
+
+    def write_engine_state(self, session_id: str, state: str) -> None:
+        """Append one row to ``engine_state`` (D-10/D-11).
+
+        Args:
+            session_id: Current session's run_id (UUID7).
+            state: One of ``'running'``, ``'killed'``, ``'paused'``,
+                ``'flatten_requested'``. Not validated here — the caller
+                (FullRiskManager / API route) is responsible for passing a
+                valid literal.
+        """
+        from trading_core.storage.runs import new_run_id  # lazy import; avoids cycle
+
+        self._conn.execute(
+            WRITE_ENGINE_STATE_SQL,
+            [new_run_id(), session_id, state],
+        )
+
+    def get_engine_state(self) -> str:
+        """Return the most-recent ``engine_state.state`` value, or ``'running'``.
+
+        Returns ``'running'`` when the table is empty (safe startup default —
+        the engine has never been killed, so it is implicitly running).
+        """
+        row = self._conn.execute(GET_ENGINE_STATE_SQL).fetchone()
+        if row is None:
+            return "running"
+        return str(row[0])
 
     # ---- context manager + close -----------------------------------------
 

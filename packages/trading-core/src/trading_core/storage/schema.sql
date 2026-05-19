@@ -146,3 +146,41 @@ CREATE TABLE IF NOT EXISTS holdout_burns (
     burned_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     quarter    VARCHAR     NOT NULL       -- e.g., '2026Q2' (YYYYQ format)
 );
+
+-- Phase 5: Risk state append-only table (D-06/D-07).
+-- One row per update; full audit trail of all three DD model states side-by-side.
+CREATE TABLE IF NOT EXISTS risk_state (
+    id                       VARCHAR        PRIMARY KEY,    -- uuid7
+    ts_utc                   TIMESTAMPTZ    NOT NULL,
+    date                     DATE           NOT NULL,        -- trading date (ET)
+    session_id               VARCHAR        NOT NULL,        -- today's run_id (UUID7)
+    equity_dollars           DECIMAL(20,10) NOT NULL,
+    realized_pnl_dollars     DECIMAL(20,10) NOT NULL,
+    open_exposure_dollars    DECIMAL(20,10) NOT NULL,
+    hwm_static               DECIMAL(20,10) NOT NULL,
+    floor_static             DECIMAL(20,10) NOT NULL,
+    hwm_trailing_eod         DECIMAL(20,10) NOT NULL,
+    floor_trailing_eod       DECIMAL(20,10) NOT NULL,
+    hwm_trailing_intraday    DECIMAL(20,10) NOT NULL,
+    floor_trailing_intraday  DECIMAL(20,10) NOT NULL
+);
+
+-- Phase 5: Audit log — every event persisted synchronously (SP-03 / D-09).
+-- Append-only; no primary-key conflict possible (uuid7 is unique per event).
+CREATE TABLE IF NOT EXISTS audit_log (
+    event_id     VARCHAR        PRIMARY KEY,    -- uuid7 (time-sortable)
+    ts_utc       TIMESTAMPTZ    NOT NULL,
+    topic        VARCHAR        NOT NULL,        -- EventBus topic constant
+    entity_id    VARCHAR        NOT NULL,        -- signal_id / fill_id / run_id
+    reason_code  VARCHAR        NOT NULL,        -- 'dd_floor_violation', 'pass', 'kill_switch', etc.
+    payload_json VARCHAR        NOT NULL         -- serialized Pydantic model (JSON)
+);
+
+-- Phase 5: Engine state — persisted on every state change (D-10/D-11).
+-- Append-only; most-recent row = current state.
+CREATE TABLE IF NOT EXISTS engine_state (
+    id         VARCHAR        PRIMARY KEY,    -- uuid7
+    session_id VARCHAR        NOT NULL,
+    ts_utc     TIMESTAMPTZ    NOT NULL,
+    state      VARCHAR        NOT NULL        -- 'running' | 'killed' | 'paused' | 'flatten_requested'
+);
