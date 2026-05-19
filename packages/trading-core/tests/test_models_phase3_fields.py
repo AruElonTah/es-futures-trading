@@ -255,5 +255,7 @@ class TestRiskConfig:
     def test_risk_config_rejects_extra_fields(self):
         from trading_core.risk.models import RiskConfig
 
+        # Phase 3 used `daily_dd_limit` as the "extra field" sentinel, but Phase 5
+        # legitimately adds that field. Use a genuinely unknown field instead.
         with pytest.raises(ValidationError):
-            RiskConfig(max_contracts=1, daily_dd_limit=500)
+            RiskConfig(max_contracts=1, unknown_phase3_field=500)  # type: ignore[call-arg]

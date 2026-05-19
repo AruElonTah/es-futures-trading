@@ -1,0 +1,16 @@
+# Operator risk parameters — D-01 / D-04 locked defaults.
+# These values are ROADMAP-locked: changing them requires updating the
+# cross-phase guardrails in ROADMAP.md.
+#
+# account_equity:        Static starting equity for ATR-based sizing math.
+# max_risk_per_trade_pct: 1% of equity = $500 per trade at $50k.
+# daily_dd_limit:        Dollar circuit breaker. Engine halts new entries
+#                        when realized + open loss exceeds this threshold.
+# max_contracts:         Per-signal contract cap (MES units for v1).
+# drawdown_model:        Active HWM model. TRAILING_INTRADAY = Apex-style.
+
+account_equity: 50000
+max_risk_per_trade_pct: 0.01
+daily_dd_limit: 2000
+max_contracts: 2
+drawdown_model: TRAILING_INTRADAY
