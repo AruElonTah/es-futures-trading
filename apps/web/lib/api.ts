@@ -45,6 +45,7 @@ export interface BacktestRow {
   trade_count: number | null
   avg_hold_bars: number | null
   created_at: string
+  status: 'pending' | 'running' | 'complete' | 'failed'  // WR-01: Phase 7 D-15
 }
 
 /** Shape of an equity curve point from GET /backtests/{run_id}/equity */

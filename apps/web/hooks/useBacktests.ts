@@ -88,14 +88,14 @@ export function useStrategies() {
  * Polls every 2s while status === 'pending'; stops when complete/failed (D-15).
  */
 export function useStrategyRun(runId: string | null) {
-  return useQuery<BacktestRow & { status?: 'pending' | 'complete' | 'failed' }>({
+  return useQuery<BacktestRow>({
     queryKey: ['backtest_run', runId],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/backtests/${runId}`)
       if (!res.ok) {
         throw new Error(`GET /backtests/${runId} failed: ${res.status} ${res.statusText}`)
       }
-      return res.json() as Promise<BacktestRow & { status?: 'pending' | 'complete' | 'failed' }>
+      return res.json() as Promise<BacktestRow>
     },
     enabled: runId != null,
     // Poll every 2s while pending; stop when complete (D-15)
