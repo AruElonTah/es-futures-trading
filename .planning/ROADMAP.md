@@ -315,4 +315,4 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 - FND-08 has cross-phase aspects: the `runs` table and hash logging infrastructure is owned by Phase 1 (primary phase); the CI assertion test is introduced in Phase 3 and expanded in Phase 8 — captured in Cross-Phase Guardrails above.
 - MD-10 is owned by Phase 6 (not Phase 1) because daily TV↔Twelve-Data reconciliation requires the TV bridge to exist.
 
-*Last updated: 2026-05-17 — Phase 3 complete (5/5 plans; integration gate passed: BacktestEngine + FastAPI REST+WS + Next.js dashboard all verified).*
+*Last updated: 2026-05-19 — Phase 6 complete (4/4 plans; TVBridge supervisor + draw engine + REST routes + TVReplayDataSource + reconciliation + nightly cleanup + AuthorTVAlertButton all verified; 520 tests passing).*
