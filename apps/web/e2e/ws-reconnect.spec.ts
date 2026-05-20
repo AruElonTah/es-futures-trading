@@ -49,8 +49,8 @@ test('WS reconnects after network drop and shows no permanent stale data', async
   // We wait 4s which is enough for the client to detect the close and schedule a reconnect
   await page.waitForTimeout(4000)
 
-  // Step 5: Release the route so subsequent reconnect attempts can succeed
-  await page.unrouteWebSocket('**/stream')
+  // Step 5: Release all routes so subsequent reconnect attempts can succeed
+  await page.unrouteAll()
 
   // Wait for the reconnect to complete (backoff with jitter: ~1-2s)
   await page.waitForTimeout(3000)
