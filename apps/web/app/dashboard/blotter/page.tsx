@@ -414,6 +414,8 @@ export default function BlotterPage() {
   const [flattenOpen, setFlattenOpen] = useState(false)
   const [killOpen, setKillOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
+  // WR-02: surface flatten errors to the user
+  const [flattenError, setFlattenError] = useState<string | null>(null)
   const dialogOpen = flattenOpen || killOpen
 
   // Time-in ticker — forces re-render every second to update HH:MM:SS
@@ -477,10 +479,21 @@ export default function BlotterPage() {
   // Flatten confirm action
   async function handleFlattenConfirm() {
     setFlattenOpen(false)
+    setFlattenError(null)
     try {
-      await fetch(`${API_BASE}/flatten`, { method: 'POST' })
-    } catch {
-      // Fire-and-forget; backend writes audit log
+      const res = await fetch(`${API_BASE}/flatten`, { method: 'POST' })
+      if (!res.ok) {
+        // WR-02: surface non-2xx response so the operator knows the request failed.
+        const errText = await res.text().catch(() => '')
+        const msg = `Flatten failed: ${res.status} ${errText.slice(0, 120)}`
+        setFlattenError(msg)
+        console.error(msg)
+      }
+    } catch (e) {
+      // Network error — backend may still have received the request.
+      const msg = `Flatten network error: ${String(e).slice(0, 120)}`
+      setFlattenError(msg)
+      console.error(msg)
     }
   }
 
@@ -557,6 +570,32 @@ export default function BlotterPage() {
           <ConnectionStatus />
         </div>
       </header>
+
+      {/* WR-02: flatten error banner */}
+      {flattenError && (
+        <div
+          role="alert"
+          style={{
+            padding: '6px 16px',
+            backgroundColor: '#2d0000',
+            borderBottom: '1px solid #ef4444',
+            color: '#f87171',
+            fontSize: '11px',
+            fontFamily: 'monospace',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span>{flattenError}</span>
+          <button
+            onClick={() => setFlattenError(null)}
+            style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '11px' }}
+          >
+            dismiss
+          </button>
+        </div>
+      )}
 
       {/* Positions table */}
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
@@ -671,7 +710,7 @@ export default function BlotterPage() {
 
                 return (
                   <tr
-                    key={`${pos.strategy_id}-${pos.symbol}-${idx}`}
+                    key={`${pos.strategy_id}-${pos.symbol}-${pos.entry_ts_utc}`}
                     style={{
                       height: '36px',
                       backgroundColor: '#111111',
