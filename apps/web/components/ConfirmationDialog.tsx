@@ -61,7 +61,10 @@ export default function ConfirmationDialog({
     if (!open) return
     function handler(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
-      if (e.key === 'Enter' && value === confirmString) onConfirm()
+      if (e.key === 'Enter' && value === confirmString) {
+        e.preventDefault()  // WR-06: prevent button onClick from also firing when button has focus
+        onConfirm()
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
