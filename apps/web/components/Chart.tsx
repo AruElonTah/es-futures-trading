@@ -26,6 +26,7 @@ import {
   type Time,
 } from 'lightweight-charts'
 import type { BarRow, TradeRow } from '@/lib/api'
+import { useWsStore } from '@/store/ws'
 
 /** ET time formatter — converts Unix seconds to America/New_York hh:mm display */
 const etTimeFormatter = (unixSeconds: number): string =>
@@ -70,8 +71,14 @@ export default function Chart({
 }: ChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  // chartRef stored for Effect 3 (focusedBarTs scroll) — must not be in Effect 1 scope
+  const chartRef = useRef<IChartApi | null>(null)
   // Incremented each time a chart is created so the overlay effect re-fires
   const [chartKey, setChartKey] = useState(0)
+
+  // focusedBarTs Zustand atom (D-12: click-to-scroll from TradeHistoryPane)
+  const focusedBarTs = useWsStore((s) => s.focusedBarTs)
+  const setFocusedBarTs = useWsStore((s) => s.setFocusedBarTs)
 
   // Effect 1: chart lifecycle — only bars and ORB levels.
   // Trades are intentionally excluded so a late-arriving trades query does not
@@ -149,6 +156,7 @@ export default function Chart({
 
     chart.timeScale().fitContent()
     seriesRef.current = candleSeries
+    chartRef.current = chart // Store for Effect 3 (focusedBarTs scroll)
 
     // Signal to Effect 2 that a new series is ready
     setChartKey((k) => k + 1)
@@ -161,6 +169,7 @@ export default function Chart({
 
     return () => {
       resizeObserver.disconnect()
+      chartRef.current = null // Clear before remove (T-07-03-03 / Pitfall 2)
       seriesRef.current = null
       chart.remove()
     }
@@ -210,6 +219,35 @@ export default function Chart({
     }
     createSeriesMarkers(candleSeries, entryMarkers)
   }, [trades, chartKey])
+
+  // Effect 3: chart scroll-to-trade — watches focusedBarTs Zustand atom (D-12).
+  // Fires when a trade row in TradeHistoryPane is clicked.
+  // Scrolls the candlestick chart to center the bar at the trade's entry timestamp.
+  useEffect(() => {
+    if (!focusedBarTs || !seriesRef.current || !chartRef.current) return
+
+    const targetUnix = Math.floor(new Date(focusedBarTs).getTime() / 1000)
+
+    // Sort bars ASC for index lookup (bars prop may be DESC from API)
+    const sorted = [...bars].sort(
+      (a, b) => new Date(a.ts_utc).getTime() - new Date(b.ts_utc).getTime()
+    )
+
+    const idx = sorted.findIndex(
+      (b) => Math.floor(new Date(b.ts_utc).getTime() / 1000) === targetUnix
+    )
+
+    if (idx >= 0) {
+      // Scroll so the target bar is ~30% from the left edge
+      chartRef.current.timeScale().scrollToPosition(
+        idx - Math.floor(sorted.length * 0.3),
+        false
+      )
+    }
+
+    // Reset after scroll so effect doesn't fire again (D-12)
+    setFocusedBarTs(null)
+  }, [focusedBarTs, bars, setFocusedBarTs])
 
   return (
     <div

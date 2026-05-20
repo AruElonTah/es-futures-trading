@@ -5,8 +5,8 @@
  *
  * Replaces the 2-pane layout with a resizable 4-pane terminal:
  *   - Left (60%): CHART pane — candlestick chart with ORB overlay
- *   - Right (40%) / Top (30%): BLOTTER pane — placeholder (Plan 07-03)
- *   - Right (40%) / Mid (40%): HISTORY pane — placeholder (Plan 07-03)
+ *   - Right (40%) / Top (30%): BLOTTER pane — BlotterPane (Plan 07-03)
+ *   - Right (40%) / Mid (40%): HISTORY pane — TradeHistoryPane (Plan 07-03 Task 2)
  *   - Right (40%) / Bot (30%): CONTROLS pane — placeholder (Plan 07-04)
  *
  * Layout persistence via localStorage (D-06): try/catch JSON.parse with
@@ -24,12 +24,16 @@ import Link from 'next/link'
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
 import { useStream } from '@/hooks/useStream'
 import { useBars } from '@/hooks/useBars'
-import { useBacktests, useEquityCurve, useEquityTrades } from '@/hooks/useBacktests'
+import { useBacktests, useEquityTrades } from '@/hooks/useBacktests'
 import Chart from '@/components/Chart'
 import ETClock from '@/components/ETClock'
 import ConnectionStatus from '@/components/ConnectionStatus'
 import DegradationBanner from '@/components/DegradationBanner'
 import PaneContainer from '@/components/PaneContainer'
+import BlotterPane from '@/components/BlotterPane'
+import TradeHistoryPane from '@/components/TradeHistoryPane'
+import AuthorTVAlertButton from '@/components/AuthorTVAlertButton'
+import { useWsStore } from '@/store/ws'
 import type { BarRow } from '@/lib/api'
 
 // ---------------------------------------------------------------------------
@@ -48,6 +52,42 @@ function loadSizes(key: string, fallback: number[]): number[] {
     if (raw) return JSON.parse(raw) as number[]
   } catch { /* D-06: silent fallback — no error shown */ }
   return fallback
+}
+
+// ---------------------------------------------------------------------------
+// EngineStateBadge (inline — used in BLOTTER pane rightSlot per D-05)
+// ---------------------------------------------------------------------------
+
+const ENGINE_STATE_COLORS: Record<'running' | 'paused' | 'killed', string> = {
+  running: '#4ade80',
+  paused: '#eab308',
+  killed: '#ef4444',
+}
+
+const ENGINE_STATE_LABELS: Record<'running' | 'paused' | 'killed', string> = {
+  running: 'RUNNING',
+  paused: 'PAUSED',
+  killed: 'KILLED',
+}
+
+function EngineStateBadge({ state }: { state: 'running' | 'paused' | 'killed' }) {
+  const color = ENGINE_STATE_COLORS[state] ?? '#888888'
+  const label = ENGINE_STATE_LABELS[state] ?? state.toUpperCase()
+  return (
+    <span
+      style={{
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        padding: '2px 8px',
+        borderRadius: '2px',
+        border: `1px solid ${color}`,
+        color,
+        backgroundColor: 'transparent',
+      }}
+    >
+      {label}
+    </span>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +150,9 @@ export default function DashboardPage() {
   // Mount WS subscription (side-effect only — no return value needed)
   useStream()
 
+  // Read engine state for BLOTTER pane title bar rightSlot (D-05)
+  const engineState = useWsStore((s) => s.engineState)
+
   // Fetch bars data
   const { data: bars } = useBars('SPY', '1m', 390)
 
@@ -117,9 +160,10 @@ export default function DashboardPage() {
   const { data: backtests } = useBacktests()
   const latestRunId = backtests?.[0]?.run_id ?? null
 
-  // Fetch equity curve + trades for most-recent backtest
-  // (equityPoints unused in Plan 07-02 shell — wired to TradeHistoryPane in Plan 07-03)
-  useEquityCurve(latestRunId)
+  // Fetch trades for most-recent backtest (for Chart entry markers)
+  // TradeHistoryPane also fetches its own copy for the trade table + equity chart.
+  // TanStack Query deduplicates these: same queryKey ['trades', latestRunId] returns
+  // cached data, so the network hit happens only once.
   const { data: trades } = useEquityTrades(latestRunId)
 
   // Stable empty-array fallbacks — prevent new [] refs on every render while
@@ -230,26 +274,25 @@ export default function DashboardPage() {
               localStorage.setItem(LAYOUT_KEY_V, JSON.stringify(sizes))
             }
           >
-            {/* BLOTTER pane — placeholder until Plan 07-03 */}
+            {/* BLOTTER pane — Plan 07-03 Task 1 (migrated from /dashboard/blotter) */}
             <Panel
               defaultSize={loadSizes(LAYOUT_KEY_V, DEFAULT_V_SIZES)[0]}
               style={{ minHeight: '120px' }}
             >
-              <PaneContainer label="BLOTTER">
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    backgroundColor: '#111111',
-                    color: '#888888',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  Coming in Plan 07-03
-                </div>
+              <PaneContainer
+                label="BLOTTER"
+                rightSlot={
+                  <>
+                    <EngineStateBadge state={engineState} />
+                    <AuthorTVAlertButton
+                      strategyId="orb"
+                      condition="ORB long entry threshold"
+                      message="ORB strategy alert"
+                    />
+                  </>
+                }
+              >
+                <BlotterPane />
               </PaneContainer>
             </Panel>
 
@@ -263,26 +306,13 @@ export default function DashboardPage() {
               aria-label="Resize blotter and history panels"
             />
 
-            {/* HISTORY pane — placeholder until Plan 07-03 */}
+            {/* HISTORY pane — Plan 07-03 Task 2 (TradeHistoryPane) */}
             <Panel
               defaultSize={loadSizes(LAYOUT_KEY_V, DEFAULT_V_SIZES)[1]}
               style={{ minHeight: '152px' }}
             >
               <PaneContainer label="HISTORY">
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    backgroundColor: '#111111',
-                    color: '#888888',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  Coming in Plan 07-03
-                </div>
+                <TradeHistoryPane runId={latestRunId} />
               </PaneContainer>
             </Panel>
 
@@ -314,7 +344,7 @@ export default function DashboardPage() {
                     fontFamily: 'monospace',
                   }}
                 >
-                  Coming in Plan 07-03
+                  Coming in Plan 07-04
                 </div>
               </PaneContainer>
             </Panel>
