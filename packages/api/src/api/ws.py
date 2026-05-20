@@ -1,7 +1,7 @@
-"""WebSocket fan-out — D-04 (7-topic mirror), D-05 ({type,payload} envelope),
+"""WebSocket fan-out — D-04 (9-topic mirror), D-05 ({type,payload} envelope),
 D-06 (in-process asyncio.Queue, no broadcaster dep).
 
-ConnectionManager subscribes to all 7 EventBus topics in a background task and
+ConnectionManager subscribes to all 9 EventBus topics in a background task and
 fans out every received event as a JSON string onto every connected client's
 per-client asyncio.Queue. The WS /stream route in app.py drains that queue
 and forwards to the browser.
@@ -29,13 +29,15 @@ from trading_core.events.models import (
     TOPIC_POSITIONS,
     TOPIC_RISK_DECISIONS,
     TOPIC_SIGNALS,
+    TOPIC_STRATEGY_RELOAD,
 )
 from trading_core.logging import get_logger
 
 log = get_logger(__name__)
 
-# D-04: all 8 EventBus topics that /stream mirrors to every connected client
+# D-04: all 9 EventBus topics that /stream mirrors to every connected client.
 # Phase 5 adds TOPIC_ENGINE_STATE for kill/flatten/pause notifications to the blotter.
+# Phase 7 adds TOPIC_STRATEGY_RELOAD for hot-reload confirmation (D-14).
 ALL_TOPICS: tuple[str, ...] = (
     TOPIC_BARS,
     TOPIC_SIGNALS,
@@ -45,6 +47,7 @@ ALL_TOPICS: tuple[str, ...] = (
     TOPIC_EQUITY,
     TOPIC_DEGRADED_STATE,
     TOPIC_ENGINE_STATE,
+    TOPIC_STRATEGY_RELOAD,  # Phase 7 D-14
 )
 
 
@@ -82,7 +85,7 @@ class ConnectionManager:
         self._clients.discard(q)
 
     async def start_background_fan_out(self) -> None:
-        """Subscribe to all 7 topics and fan out events to every connected client.
+        """Subscribe to all 9 topics and fan out events to every connected client.
 
         Runs until cancelled (lifespan shutdown). Each topic runs as a concurrent
         coroutine so a slow topic cannot starve the others.
