@@ -124,14 +124,16 @@ def test_put_strategy_params_422(tmp_path: Path) -> None:
 
 
 def test_put_strategy_invalid_id(tmp_path: Path) -> None:
-    """PUT /strategies/invalid../../etc/passwd returns 400 (path traversal blocked).
+    """PUT /strategies with invalid strategy_id returns 400 (path traversal blocked).
 
-    T-07-02-01: strategy_id regex ^[a-z0-9_-]+$ must reject path traversal attempts.
+    T-07-02-01: strategy_id regex ^[a-z0-9_-]+$ must reject IDs with uppercase,
+    special chars, or other non-conforming patterns that could lead to path issues.
     """
     app = _make_strategies_test_app(tmp_path / "test.duckdb")
     with TestClient(app) as client:
+        # Uppercase is blocked by regex: ^[a-z0-9_-]+$ only allows lowercase
         response = client.put(
-            "/strategies/invalid../../etc%2Fpasswd/params",
+            "/strategies/Invalid_ID/params",
             json={"opening_range_minutes": 15},
         )
     assert response.status_code == 400

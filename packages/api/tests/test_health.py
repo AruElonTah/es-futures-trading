@@ -106,6 +106,11 @@ def test_phase3_endpoints_registered() -> None:
         "/tv/alerts",
         "/tv/alerts/{alert_id}",
         "/tv/status",
+        # Phase 7 Plan 02: strategies routes (D-17, UI-07)
+        "/strategies",
+        "/strategies/{strategy_id}/params",
+        "/strategies/{strategy_id}/toggle",
+        "/backtests/run",
     ])
     assert user_paths == expected, (
         f"Phase 5 app must expose exactly {expected}; "
