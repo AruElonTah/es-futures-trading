@@ -60,16 +60,16 @@ function routeMessage(
 // ---------------------------------------------------------------------------
 
 describe('useStream message routing — engine_state_changed', () => {
-  let setLastBarAt: ReturnType<typeof vi.fn>
-  let setDegraded: ReturnType<typeof vi.fn>
-  let setEngineState: ReturnType<typeof vi.fn>
-  let setPositions: ReturnType<typeof vi.fn>
+  let setLastBarAt: (ts: number) => void
+  let setDegraded: (v: { source: string; reason: string }) => void
+  let setEngineState: (s: EngineState) => void
+  let setPositions: (p: unknown) => void
 
   beforeEach(() => {
-    setLastBarAt = vi.fn()
-    setDegraded = vi.fn()
-    setEngineState = vi.fn()
-    setPositions = vi.fn()
+    setLastBarAt = vi.fn() as unknown as (ts: number) => void
+    setDegraded = vi.fn() as unknown as (v: { source: string; reason: string }) => void
+    setEngineState = vi.fn() as unknown as (s: EngineState) => void
+    setPositions = vi.fn() as unknown as (p: unknown) => void
   })
 
   it('calls setEngineState("killed") when state is "killed"', () => {
