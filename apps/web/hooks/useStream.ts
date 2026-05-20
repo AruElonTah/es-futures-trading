@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { WS_BASE } from '@/lib/api'
-import { useWsStore } from '@/store/ws'
+import { useWsStore, type Position } from '@/store/ws'
 
 /**
  * Native WebSocket hook with exponential backoff reconnect (Phase 7 SP-06).
@@ -107,10 +107,16 @@ export function useStream() {
           case 'engine_state_changed':
             setEngineState(msg.payload.state as 'running' | 'paused' | 'killed')
             break
-          case 'positions':
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            setPositions(msg.payload as any)
+          case 'positions': {
+            // WR-05: payload may be a bare array or an object with a positions key.
+            // The backend model serializes as {topic, emitted_at, positions: [...]}.
+            const raw = msg.payload
+            const arr = Array.isArray(raw)
+              ? raw
+              : (raw as Record<string, unknown>).positions
+            if (Array.isArray(arr)) setPositions(arr as Position[])
             break
+          }
           default:
             break
         }
