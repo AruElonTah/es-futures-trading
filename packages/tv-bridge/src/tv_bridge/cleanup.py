@@ -56,7 +56,16 @@ def _trading_days_ago(today: date, n: int) -> date:
     schedule = cal.schedule(start_date=today - timedelta(days=n * 2 + 10), end_date=today)
     trading_days = [d.date() for d in schedule.index]
     if len(trading_days) <= n:
-        return today - timedelta(days=n * 2)   # Conservative fallback
+        # WR-04: return today (retain everything) rather than an unpredictable
+        # cutoff that could delete far more overlays than intended.
+        _log.warning(
+            "cleanup.calendar_fallback",
+            reason="schedule_too_short",
+            today=today.isoformat(),
+            n=n,
+            trading_days_found=len(trading_days),
+        )
+        return today
     return trading_days[-(n + 1)]              # n-th trading day before today
 
 
