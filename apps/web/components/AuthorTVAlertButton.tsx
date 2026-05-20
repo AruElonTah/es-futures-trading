@@ -2,7 +2,7 @@
 
 // TODO(Phase 7 UI-07): condition + message will be sourced from the live strategy registry; Phase 6 wires hardcoded ORB defaults from the call site.
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { API_BASE } from '@/lib/api'
 
 interface AuthorTVAlertButtonProps {
@@ -14,6 +14,17 @@ interface AuthorTVAlertButtonProps {
 export default function AuthorTVAlertButton({ strategyId, condition, message }: AuthorTVAlertButtonProps) {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  // WR-01: store timer ID so it can be cleared on unmount and before re-arm.
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // WR-01: clear the dismiss timer on unmount to prevent setState after unmount.
+  useEffect(() => {
+    return () => {
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current)
+      }
+    }
+  }, [])
 
   const onClick = async () => {
     setBusy(true)
@@ -35,8 +46,11 @@ export default function AuthorTVAlertButton({ strategyId, condition, message }: 
       setToast(`Network error: ${String(e).slice(0, 120)}`)
     } finally {
       setBusy(false)
-      // Auto-dismiss toast after 6s
-      setTimeout(() => setToast(null), 6000)
+      // Auto-dismiss toast after 6s — clear any in-flight timer first.
+      if (timerRef.current !== null) {
+        clearTimeout(timerRef.current)
+      }
+      timerRef.current = setTimeout(() => setToast(null), 6000)
     }
   }
 
