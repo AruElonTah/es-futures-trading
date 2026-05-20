@@ -27,6 +27,8 @@ export interface WsState {
   degraded: DegradedState | null
   engineState: 'running' | 'paused' | 'killed'
   positions: Position[]
+  focusedBarTs: string | null
+  lastSeq: number | null
 }
 
 export interface Position {
@@ -49,6 +51,8 @@ export interface WsActions {
   clearDegraded: () => void
   setEngineState: (s: 'running' | 'paused' | 'killed') => void
   setPositions: (p: Position[]) => void
+  setFocusedBarTs: (ts: string | null) => void
+  setLastSeq: (seq: number) => void
 }
 
 export type WsStore = WsState & WsActions
@@ -59,6 +63,8 @@ export const useWsStore = create<WsStore>()((set) => ({
   degraded: null,
   engineState: 'running',
   positions: [],
+  focusedBarTs: null,
+  lastSeq: null,
 
   setConnected: (v: boolean) => set({ connected: v }),
   setLastBarAt: (ts: number) => set({ lastBarAt: ts }),
@@ -66,6 +72,8 @@ export const useWsStore = create<WsStore>()((set) => ({
   clearDegraded: () => set({ degraded: null }),
   setEngineState: (s: 'running' | 'paused' | 'killed') => set({ engineState: s }),
   setPositions: (p: Position[]) => set({ positions: p }),
+  setFocusedBarTs: (ts: string | null) => set({ focusedBarTs: ts }),
+  setLastSeq: (seq: number) => set({ lastSeq: seq }),
 }))
 
 /**
