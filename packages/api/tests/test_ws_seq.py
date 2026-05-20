@@ -6,16 +6,20 @@ Tests (SP-06 — sequence number gap detection):
 3. Two consecutive messages have seq N and N+1 (monotonically increasing)
 4. dict payloads get seq injected directly
 5. Non-dict (Event) payloads get seq in the envelope
+
+CR-03 fix: replaced asyncio.get_event_loop().run_until_complete() calls (which
+operated on the wrong event loop — the main-thread loop rather than the anyio
+background loop used by TestClient) with anyio.from_thread.run(), which
+dispatches the coroutine to the portal established by TestClient's anyio runner.
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 from datetime import datetime, timezone
-from decimal import Decimal
 from pathlib import Path
 
+import anyio.from_thread
 import pytest
 
 from trading_core.events import EventBus
@@ -65,8 +69,11 @@ class TestWsSeqMonotonic:
                     source="test_seq",
                     reason="first message",
                 )
-                asyncio.get_event_loop().run_until_complete(
-                    app.state.bus.publish(TOPIC_DEGRADED_STATE, event)
+                # CR-03 fix: use anyio.from_thread.run() to dispatch the
+                # coroutine to the anyio portal that TestClient established
+                # in its background thread — not the main-thread event loop.
+                anyio.from_thread.run(
+                    app.state.bus.publish, TOPIC_DEGRADED_STATE, event
                 )
                 raw = ws.receive_text()
                 msg = json.loads(raw)
@@ -88,8 +95,9 @@ class TestWsSeqMonotonic:
                         source="test_seq",
                         reason=f"message {i}",
                     )
-                    asyncio.get_event_loop().run_until_complete(
-                        app.state.bus.publish(TOPIC_DEGRADED_STATE, event)
+                    # CR-03 fix: dispatch to the anyio portal's event loop.
+                    anyio.from_thread.run(
+                        app.state.bus.publish, TOPIC_DEGRADED_STATE, event
                     )
 
                 raw1 = ws.receive_text()
@@ -114,11 +122,11 @@ class TestWsSeqMonotonic:
         with TestClient(app) as client:
             with client.websocket_connect("/stream") as ws:
                 # Publish a plain dict (same pattern as risk routes use for engine_state)
-                asyncio.get_event_loop().run_until_complete(
-                    app.state.bus.publish(
-                        TOPIC_ENGINE_STATE,
-                        {"type": "engine_state_changed", "payload": {"state": "running"}},
-                    )
+                # CR-03 fix: dispatch to the anyio portal's event loop.
+                anyio.from_thread.run(
+                    app.state.bus.publish,
+                    TOPIC_ENGINE_STATE,
+                    {"type": "engine_state_changed", "payload": {"state": "running"}},
                 )
                 raw = ws.receive_text()
                 msg = json.loads(raw)
@@ -141,8 +149,9 @@ class TestWsSeqMonotonic:
                     source="envelope_test",
                     reason="event obj",
                 )
-                asyncio.get_event_loop().run_until_complete(
-                    app.state.bus.publish(TOPIC_DEGRADED_STATE, event)
+                # CR-03 fix: dispatch to the anyio portal's event loop.
+                anyio.from_thread.run(
+                    app.state.bus.publish, TOPIC_DEGRADED_STATE, event
                 )
                 raw = ws.receive_text()
                 msg = json.loads(raw)
