@@ -175,12 +175,12 @@ SELECT * FROM risk_state WHERE date = ? ORDER BY ts_utc DESC LIMIT 1;
 """
 
 WRITE_ENGINE_STATE_SQL = """
-INSERT INTO engine_state (id, session_id, ts_utc, state)
-VALUES (?, ?, now(), ?);
+INSERT INTO engine_state (id, session_id, ts_utc, state, kind)
+VALUES (?, ?, now(), ?, 'global');
 """
 
 GET_ENGINE_STATE_SQL = """
-SELECT state FROM engine_state ORDER BY ts_utc DESC LIMIT 1;
+SELECT state FROM engine_state WHERE kind = 'global' ORDER BY ts_utc DESC LIMIT 1;
 """
 
 # Phase 6: TV overlay + alert SQL constants (TV-02, TV-07).
@@ -769,7 +769,7 @@ class DuckDBStore:
         """
         row = self._conn.execute(
             "SELECT state FROM engine_state "
-            "WHERE session_id = ? "
+            "WHERE session_id = ? AND kind = 'strategy' "
             "ORDER BY ts_utc DESC LIMIT 1",
             [strategy_id],
         ).fetchone()
@@ -793,7 +793,7 @@ class DuckDBStore:
 
         state = "running" if enabled else "killed"
         self._conn.execute(
-            "INSERT INTO engine_state (id, session_id, ts_utc, state) VALUES (?, ?, ?, ?)",
+            "INSERT INTO engine_state (id, session_id, ts_utc, state, kind) VALUES (?, ?, ?, ?, 'strategy')",
             [new_run_id(), strategy_id, datetime.now(timezone.utc), state],
         )
 

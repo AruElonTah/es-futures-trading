@@ -179,11 +179,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
 -- Phase 5: Engine state — persisted on every state change (D-10/D-11).
 -- Append-only; most-recent row = current state.
+-- WR-02: kind column discriminates global engine state ('global') from
+-- per-strategy enabled state ('strategy') so session_id namespace never collides.
 CREATE TABLE IF NOT EXISTS engine_state (
     id         VARCHAR        PRIMARY KEY,    -- uuid7
     session_id VARCHAR        NOT NULL,
     ts_utc     TIMESTAMPTZ    NOT NULL,
-    state      VARCHAR        NOT NULL        -- 'running' | 'killed' | 'paused' | 'flatten_requested'
+    state      VARCHAR        NOT NULL,       -- 'running' | 'killed' | 'paused' | 'flatten_requested'
+    kind       VARCHAR        NOT NULL DEFAULT 'global'  -- 'global' | 'strategy' (WR-02)
 );
 
 -- Phase 6: TV overlay registry (TV-02).
