@@ -7,10 +7,9 @@ Tests (SP-06 — sequence number gap detection):
 4. dict payloads get seq injected directly
 5. Non-dict (Event) payloads get seq in the envelope
 
-CR-03 fix: replaced asyncio.get_event_loop().run_until_complete() calls (which
-operated on the wrong event loop — the main-thread loop rather than the anyio
-background loop used by TestClient) with anyio.from_thread.run(), which
-dispatches the coroutine to the portal established by TestClient's anyio runner.
+CR-03 fix: publish via client.portal.call() — the BlockingPortal that TestClient
+creates for its ASGI event loop. This is the only correct way to submit work to
+that loop from a synchronous test running in the main thread.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-import anyio.from_thread
 import pytest
 
 from trading_core.events import EventBus
@@ -69,10 +67,7 @@ class TestWsSeqMonotonic:
                     source="test_seq",
                     reason="first message",
                 )
-                # CR-03 fix: use anyio.from_thread.run() to dispatch the
-                # coroutine to the anyio portal that TestClient established
-                # in its background thread — not the main-thread event loop.
-                anyio.from_thread.run(
+                client.portal.call(
                     app.state.bus.publish, TOPIC_DEGRADED_STATE, event
                 )
                 raw = ws.receive_text()
@@ -95,8 +90,7 @@ class TestWsSeqMonotonic:
                         source="test_seq",
                         reason=f"message {i}",
                     )
-                    # CR-03 fix: dispatch to the anyio portal's event loop.
-                    anyio.from_thread.run(
+                    client.portal.call(
                         app.state.bus.publish, TOPIC_DEGRADED_STATE, event
                     )
 
@@ -122,8 +116,7 @@ class TestWsSeqMonotonic:
         with TestClient(app) as client:
             with client.websocket_connect("/stream") as ws:
                 # Publish a plain dict (same pattern as risk routes use for engine_state)
-                # CR-03 fix: dispatch to the anyio portal's event loop.
-                anyio.from_thread.run(
+                client.portal.call(
                     app.state.bus.publish,
                     TOPIC_ENGINE_STATE,
                     {"type": "engine_state_changed", "payload": {"state": "running"}},
@@ -149,8 +142,7 @@ class TestWsSeqMonotonic:
                     source="envelope_test",
                     reason="event obj",
                 )
-                # CR-03 fix: dispatch to the anyio portal's event loop.
-                anyio.from_thread.run(
+                client.portal.call(
                     app.state.bus.publish, TOPIC_DEGRADED_STATE, event
                 )
                 raw = ws.receive_text()
