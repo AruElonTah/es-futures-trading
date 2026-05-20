@@ -82,3 +82,39 @@ class StrategyRegistry:
             if file_data and "name" in file_data:
                 names.append(file_data["name"])
         return names
+
+    @staticmethod
+    def reload(strategy_id: str, strategies_dir: str | Path) -> "ORBStrategy":
+        """Reload a strategy by ID from the strategies directory.
+
+        Looks for a YAML file matching the strategy_id: first tries
+        ``{strategies_dir}/{strategy_id}.yaml``, then scans all *.yaml files
+        checking the ``strategy_id`` field.
+
+        Args:
+            strategy_id: The strategy identifier (e.g. ``"orb"`` or ``"orb-v1"``).
+            strategies_dir: Path to directory containing *.yaml strategy configs.
+
+        Returns:
+            A fresh ORBStrategy instance loaded from the matching YAML.
+
+        Raises:
+            FileNotFoundError: if no YAML file is found for the given strategy_id.
+        """
+        d = Path(strategies_dir)
+
+        # Primary lookup: {strategy_id}.yaml
+        direct = d / f"{strategy_id}.yaml"
+        if direct.exists():
+            return StrategyRegistry.load(direct)
+
+        # Secondary lookup: scan *.yaml files for matching strategy_id field
+        for p in sorted(d.glob("*.yaml")):
+            with p.open("r", encoding="utf-8") as f:
+                file_data = yaml.safe_load(f)
+            if file_data and file_data.get("strategy_id") == strategy_id:
+                return StrategyRegistry.load(p)
+
+        raise FileNotFoundError(
+            f"No strategy YAML found for '{strategy_id}' in {strategies_dir}"
+        )

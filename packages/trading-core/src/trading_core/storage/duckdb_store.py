@@ -246,9 +246,18 @@ class DuckDBStore:
         """Read schema.sql verbatim and execute it.
 
         Idempotent — every CREATE statement is ``IF NOT EXISTS``.
+
+        Also runs incremental column migrations so existing databases gain
+        new columns added in later phases without losing data.
         """
         sql = _SCHEMA_PATH.read_text(encoding="utf-8")
         self._conn.execute(sql)
+        # Phase 7 migration: add status column to backtests if not present.
+        # ALTER TABLE ... ADD COLUMN IF NOT EXISTS is idempotent in DuckDB 1.x.
+        self._conn.execute(
+            "ALTER TABLE backtests ADD COLUMN IF NOT EXISTS "
+            "status VARCHAR DEFAULT 'complete'"
+        )
 
     # ---- bars upsert ------------------------------------------------------
 

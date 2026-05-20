@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS backtests (
     trade_count          INTEGER,
     avg_hold_bars        DOUBLE,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status               VARCHAR     NOT NULL DEFAULT 'complete',  -- Phase 7: D-15 polling
     PRIMARY KEY (run_id)
 );
 

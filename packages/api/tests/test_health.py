@@ -83,8 +83,10 @@ def test_phase3_endpoints_registered() -> None:
     #   /positions, /kill, /flatten, /pause (Phase 5 risk controls + blotter)
     # Phase 6 Plan 02 surface (TV-03, TV-05, TV-07):
     #   /tv/focus, /tv/alerts, /tv/alerts/{alert_id}, /tv/status
+    #   Phase 7 Plan 01: GET /backtests/{run_id} single-row endpoint (D-15)
     expected = sorted([
         "/backtests",
+        "/backtests/{run_id}",
         "/backtests/{run_id}/equity",
         "/backtests/{run_id}/trades",
         "/bars",

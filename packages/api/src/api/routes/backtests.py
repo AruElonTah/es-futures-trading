@@ -49,7 +49,8 @@ _BACKTESTS_SQL = (
     "SELECT run_id, strategy_id, symbol, timeframe, from_ts, to_ts, param_hash, "
     "equity_curve_path, total_return, cagr, sharpe, sortino, calmar, max_dd, "
     "max_dd_duration_bars, win_rate, expectancy, profit_factor, trade_count, "
-    "avg_hold_bars, created_at "
+    "avg_hold_bars, created_at, "
+    "COALESCE(status, 'complete') AS status "
     "FROM backtests "
     "ORDER BY created_at DESC"
 )
@@ -77,7 +78,19 @@ _COLUMNS = [
     "trade_count",
     "avg_hold_bars",
     "created_at",
+    "status",
 ]
+
+# Single-row SQL for GET /backtests/{run_id} (Phase 7 D-15 polling).
+_BACKTEST_BY_ID_SQL = (
+    "SELECT run_id, strategy_id, symbol, timeframe, from_ts, to_ts, param_hash, "
+    "equity_curve_path, total_return, cagr, sharpe, sortino, calmar, max_dd, "
+    "max_dd_duration_bars, win_rate, expectancy, profit_factor, trade_count, "
+    "avg_hold_bars, created_at, "
+    "COALESCE(status, 'complete') AS status "
+    "FROM backtests "
+    "WHERE run_id = ?"
+)
 
 
 @router.get("/backtests")
@@ -116,6 +129,45 @@ def get_backtests(
         result.append(record)
     log.info("backtests.listed", rowcount=len(result))
     return result
+
+
+@router.get("/backtests/{run_id}")
+def get_backtest(
+    run_id: str,
+    store: Annotated[DuckDBStore, Depends(get_store)] = ...,  # type: ignore[assignment]
+) -> dict:
+    """Return a single backtest run summary by run_id (Phase 7 D-15 polling).
+
+    Returns HTTP 200 with the full row (including ``status`` field) when the
+    run exists, or HTTP 404 when no matching ``run_id`` is found.
+
+    The ``status`` field values: 'pending' (job queued), 'running' (in progress),
+    'complete' (finished successfully), 'failed' (error). Existing rows default
+    to 'complete' via COALESCE.
+    """
+    row = store._conn.execute(_BACKTEST_BY_ID_SQL, [run_id]).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="backtest not found")
+
+    record: dict = {}
+    for col, val in zip(_COLUMNS, row):
+        if col in ("from_ts", "to_ts", "created_at"):
+            if val is not None and hasattr(val, "isoformat"):
+                record[col] = val.isoformat()
+            elif val is not None:
+                record[col] = str(val)
+            else:
+                record[col] = None
+        elif col in ("total_return", "cagr", "sharpe", "sortino", "calmar",
+                     "max_dd", "win_rate", "expectancy", "profit_factor",
+                     "avg_hold_bars"):
+            record[col] = float(val) if val is not None else None
+        elif col in ("max_dd_duration_bars", "trade_count"):
+            record[col] = int(val) if val is not None else None
+        else:
+            record[col] = val
+    log.info("backtests.fetched", run_id=run_id)
+    return record
 
 
 @router.get("/backtests/{run_id}/equity")

@@ -326,6 +326,7 @@ class TestGetBacktests:
             "param_hash", "equity_curve_path", "total_return", "cagr", "sharpe",
             "sortino", "calmar", "max_dd", "max_dd_duration_bars", "win_rate",
             "expectancy", "profit_factor", "trade_count", "avg_hold_bars", "created_at",
+            "status",  # Phase 7 Plan 01: D-15 polling status field
         }
         assert set(row.keys()) == expected_keys
         assert row["run_id"] == "run-shape"
