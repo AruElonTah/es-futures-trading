@@ -192,14 +192,36 @@ async def run_reconciliation(
     divergence_count = 0
     for row in merged.itertuples(index=False):
         ts: datetime = row.ts_utc  # type: ignore[attr-defined]
+        # CR-03(a): compare all OHLC fields, not just close.
+        open_tv = float(row.open_tv)  # type: ignore[attr-defined]
+        open_twelve = float(row.open_twelve)  # type: ignore[attr-defined]
+        high_tv = float(row.high_tv)  # type: ignore[attr-defined]
+        high_twelve = float(row.high_twelve)  # type: ignore[attr-defined]
+        low_tv = float(row.low_tv)  # type: ignore[attr-defined]
+        low_twelve = float(row.low_twelve)  # type: ignore[attr-defined]
         close_tv = float(row.close_tv)  # type: ignore[attr-defined]
         close_twelve = float(row.close_twelve)  # type: ignore[attr-defined]
         vol_tv = float(row.volume_tv)  # type: ignore[attr-defined]
         vol_twelve = float(row.volume_twelve)  # type: ignore[attr-defined]
 
         # Direct comparison — both sides are SPY, no basis adjustment (BLOCKER 2 fix).
-        price_pct = abs(close_tv - close_twelve) / close_twelve if close_twelve != 0 else 0.0
-        vol_pct = abs(vol_tv - vol_twelve) / max(vol_twelve, 1)
+        # CR-03(a): check worst-case divergence across all four price fields.
+        def _price_pct(a: float, b: float) -> float:
+            return abs(a - b) / b if b != 0 else 0.0
+
+        price_pct = max(
+            _price_pct(open_tv, open_twelve),
+            _price_pct(high_tv, high_twelve),
+            _price_pct(low_tv, low_twelve),
+            _price_pct(close_tv, close_twelve),
+        )
+
+        # CR-03(b): skip volume comparison when both sources report zero volume
+        # to avoid false-positive alerts (e.g. pre-market or halted bars).
+        if max(vol_tv, vol_twelve) > 0:
+            vol_pct = abs(vol_tv - vol_twelve) / max(vol_tv, vol_twelve)
+        else:
+            vol_pct = 0.0
 
         if price_pct > PRICE_DIVERGENCE_THRESHOLD:
             reason_code = "price_divergence"
