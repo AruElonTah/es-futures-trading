@@ -1,85 +1,36 @@
 'use client'
 
 /**
- * /dashboard/blotter — Phase 5 blotter sub-route (UI-05, UI-09).
+ * BlotterPane — positions table + F/K/P controls as a resizable pane component.
  *
- * Positions table with live WS mark-price updates + engine state badge.
- * F/K/P hotkeys with confirmation dialogs + ? help overlay.
+ * Migrated from apps/web/app/dashboard/blotter/page.tsx (Phase 5).
+ * This is NOT a full page — it's a pane body rendered inside PaneContainer.
  *
- * Color tokens and component specs from 05-UI-SPEC.md.
- * unreal_pnl uses position.point_value from GET /positions (FND-06: no magic numbers).
+ * Key differences from the blotter page:
+ *  - Does NOT call useStream() — the parent dashboard page does this once.
+ *  - Does NOT render a header/nav bar — PaneContainer provides the title bar.
+ *  - Reads positions and engineState from useWsStore (cross-pane Zustand state).
+ *  - EngineStateBadge + AuthorTVAlertButton are passed to PaneContainer via rightSlot
+ *    in dashboard/page.tsx (D-05).
  *
- * Docs consulted:
- *  - apps/web/node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md
+ * Color tokens: 05-UI-SPEC.md / 07-UI-SPEC.md
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
+import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useStream } from '@/hooks/useStream'
-import { useHotkeys, HOTKEY_REGISTRY } from '@/hooks/useHotkeys'
-import { useWsStore } from '@/store/ws'
-import ETClock from '@/components/ETClock'
-import ConnectionStatus from '@/components/ConnectionStatus'
-import AuthorTVAlertButton from '@/components/AuthorTVAlertButton'
+import { useHotkeys } from '@/hooks/useHotkeys'
+import { useWsStore, type Position } from '@/store/ws'
+import ConfirmationDialog from '@/components/ConfirmationDialog'
+import HelpOverlay from '@/components/HelpOverlay'
 import { API_BASE } from '@/lib/api'
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface Position {
-  strategy_id: string
-  symbol: string
-  side: 'long' | 'short'
-  qty: number
-  avg_fill: number
-  mark: number
-  stop: number
-  target: number
-  entry_ts_utc: string
-  point_value: number
-}
-
 interface PositionsResponse {
   positions: Position[]
   engine_state: 'running' | 'paused' | 'killed'
-}
-
-// ---------------------------------------------------------------------------
-// Engine State Badge (inline component)
-// ---------------------------------------------------------------------------
-
-const ENGINE_STATE_COLORS: Record<'running' | 'paused' | 'killed', string> = {
-  running: '#4ade80',
-  paused: '#eab308',
-  killed: '#ef4444',
-}
-
-const ENGINE_STATE_LABELS: Record<'running' | 'paused' | 'killed', string> = {
-  running: 'RUNNING',
-  paused: 'PAUSED',
-  killed: 'KILLED',
-}
-
-function EngineStateBadge({ state }: { state: 'running' | 'paused' | 'killed' }) {
-  const color = ENGINE_STATE_COLORS[state] ?? '#888888'
-  const label = ENGINE_STATE_LABELS[state] ?? state.toUpperCase()
-  return (
-    <span
-      style={{
-        fontSize: '11px',
-        fontFamily: 'monospace',
-        padding: '2px 8px',
-        borderRadius: '2px',
-        border: `1px solid ${color}`,
-        color,
-        backgroundColor: 'transparent',
-      }}
-    >
-      {label}
-    </span>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -106,309 +57,14 @@ function formatPnl(pnl: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Confirmation dialogs
+// BlotterPane
 // ---------------------------------------------------------------------------
 
-interface ConfirmDialogProps {
-  open: boolean
-  onClose: () => void
-  onConfirm: () => void
-  title: string
-  titleColor: string
-  description: string
-  warning: string
-  inputLabel: string
-  confirmString: string
-  confirmButtonText: string
-  dismissButtonText: string
-  confirmBorderColor: string
-  inputErrorBorderColor: string
-}
-
-function ConfirmationDialog({
-  open,
-  onClose,
-  onConfirm,
-  title,
-  titleColor,
-  description,
-  warning,
-  inputLabel,
-  confirmString,
-  confirmButtonText,
-  dismissButtonText,
-  confirmBorderColor,
-  inputErrorBorderColor,
-}: ConfirmDialogProps) {
-  const [value, setValue] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-  const titleId = `dialog-title-${title.replace(/\s+/g, '-').toLowerCase()}`
-
-  // Reset input and auto-focus on open
-  useEffect(() => {
-    if (open) {
-      setValue('')
-      // Small timeout ensures DOM is rendered before focus
-      setTimeout(() => inputRef.current?.focus(), 0)
-    }
-  }, [open])
-
-  // Escape closes dialog
-  useEffect(() => {
-    if (!open) return
-    function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-      if (e.key === 'Enter' && value === confirmString) onConfirm()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [open, value, confirmString, onClose, onConfirm])
-
-  if (!open) return null
-
-  const isConfirmable = value === confirmString
-  const hasError = value.length > 0 && !isConfirmable
-  const inputBorderColor = hasError ? inputErrorBorderColor : '#333333'
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.75)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999,
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        style={{
-          backgroundColor: '#111111',
-          border: '1px solid #333333',
-          borderRadius: '4px',
-          padding: '24px',
-          maxWidth: '480px',
-          width: '100%',
-          fontFamily: 'monospace',
-        }}
-      >
-        {/* Title */}
-        <div
-          id={titleId}
-          style={{
-            fontSize: '14px',
-            fontWeight: 'bold',
-            color: titleColor,
-            marginBottom: '16px',
-          }}
-        >
-          {title}
-        </div>
-
-        {/* Description */}
-        <div style={{ fontSize: '12px', color: '#888888', marginBottom: '16px' }}>
-          {description}
-        </div>
-
-        {/* Warning */}
-        <div style={{ fontSize: '12px', color: '#f87171', marginBottom: '16px' }}>
-          {warning}
-        </div>
-
-        {/* Input label */}
-        <div style={{ fontSize: '11px', color: '#888888', marginBottom: '8px' }}>
-          {inputLabel}
-        </div>
-
-        {/* Input */}
-        <input
-          ref={inputRef}
-          type="text"
-          autoFocus
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          style={{
-            fontSize: '12px',
-            fontFamily: 'monospace',
-            backgroundColor: '#000000',
-            border: `1px solid ${inputBorderColor}`,
-            borderRadius: '4px',
-            color: '#d1d4dc',
-            padding: '8px 12px',
-            width: '100%',
-            boxSizing: 'border-box',
-            outline: 'none',
-          }}
-        />
-
-        {/* Button row */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '8px',
-            marginTop: '16px',
-          }}
-        >
-          <button
-            onClick={onClose}
-            tabIndex={0}
-            style={{
-              border: '1px solid #444444',
-              color: '#888888',
-              backgroundColor: 'transparent',
-              fontSize: '12px',
-              fontFamily: 'monospace',
-              padding: '4px 12px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            {dismissButtonText}
-          </button>
-          <button
-            onClick={isConfirmable ? onConfirm : undefined}
-            disabled={!isConfirmable}
-            aria-disabled={!isConfirmable}
-            tabIndex={0}
-            style={{
-              border: isConfirmable
-                ? `1px solid ${confirmBorderColor}`
-                : '1px solid #444444',
-              color: isConfirmable ? confirmBorderColor : '#555555',
-              backgroundColor: 'transparent',
-              fontSize: '12px',
-              fontFamily: 'monospace',
-              padding: '4px 12px',
-              borderRadius: '4px',
-              cursor: isConfirmable ? 'pointer' : 'not-allowed',
-            }}
-          >
-            {confirmButtonText}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Help Overlay
-// ---------------------------------------------------------------------------
-
-function HelpOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
-  useEffect(() => {
-    if (!open) return
-    function handler(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [open, onClose])
-
-  if (!open) return null
-
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(0,0,0,0.85)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9998,
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="help-overlay-title"
-        style={{
-          maxWidth: '400px',
-          width: '100%',
-          backgroundColor: '#111111',
-          border: '1px solid #333333',
-          borderRadius: '4px',
-          padding: '24px',
-          fontFamily: 'monospace',
-        }}
-      >
-        <div
-          id="help-overlay-title"
-          style={{
-            fontSize: '14px',
-            fontWeight: 'bold',
-            color: '#d1d4dc',
-            marginBottom: '16px',
-          }}
-        >
-          KEYBOARD SHORTCUTS
-        </div>
-
-        {HOTKEY_REGISTRY.map((entry, idx) => (
-          <div
-            key={entry.key}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '8px 0',
-              borderBottom:
-                idx < HOTKEY_REGISTRY.length - 1 ? '1px solid #222222' : 'none',
-            }}
-          >
-            <span
-              style={{
-                backgroundColor: '#222222',
-                border: '1px solid #444444',
-                color: '#d1d4dc',
-                borderRadius: '2px',
-                padding: '2px 8px',
-                fontSize: '11px',
-                minWidth: '28px',
-                textAlign: 'center',
-                display: 'inline-block',
-              }}
-            >
-              {entry.key === '?' ? '?' : entry.key.toUpperCase()}
-            </span>
-            <span style={{ fontSize: '12px', color: '#888888' }}>
-              {entry.description}
-            </span>
-          </div>
-        ))}
-
-        <div
-          style={{
-            fontSize: '11px',
-            color: '#555555',
-            marginTop: '16px',
-            textAlign: 'center',
-          }}
-        >
-          Press Esc to close
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Main Blotter Page
-// ---------------------------------------------------------------------------
-
-export default function BlotterPage() {
-  // Mount WS subscription for live price updates and engine state
-  useStream()
-
+export default function BlotterPane() {
+  // Read cross-pane state from Zustand (positions updated by useStream in parent)
   const engineState = useWsStore((s) => s.engineState)
+  const wsPositions = useWsStore((s) => s.positions)
+  const setEngineState = useWsStore((s) => s.setEngineState)
 
   // Dialog state
   const [flattenOpen, setFlattenOpen] = useState(false)
@@ -425,25 +81,19 @@ export default function BlotterPage() {
     return () => clearInterval(interval)
   }, [])
 
-  // TanStack Query — GET /positions (1s polling fallback for when WS disconnected)
-  const {
-    data: positionsData,
-    isError,
-  } = useQuery<PositionsResponse>({
+  // TanStack Query — GET /positions (1s polling fallback for when WS is disconnected)
+  const { isError } = useQuery<PositionsResponse>({
     queryKey: ['positions'],
-    queryFn: () => fetch(`${API_BASE}/positions`).then((r) => r.json()),
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/positions`)
+      if (!res.ok) throw new Error(`GET /positions failed: ${res.status}`)
+      return res.json() as Promise<PositionsResponse>
+    },
     refetchInterval: 1000,
   })
 
-  // Sync engine state from the REST response on initial load
-  const setEngineState = useWsStore((s) => s.setEngineState)
-  useEffect(() => {
-    if (positionsData?.engine_state) {
-      setEngineState(positionsData.engine_state)
-    }
-  }, [positionsData?.engine_state, setEngineState])
-
-  const positions: Position[] = positionsData?.positions ?? []
+  // Use WS positions (live) — updated by useStream in parent dashboard
+  const positions: Position[] = wsPositions
 
   // Hotkey handlers (stable references via useCallback)
   const handleFlatten = useCallback(() => {
@@ -483,14 +133,13 @@ export default function BlotterPage() {
     try {
       const res = await fetch(`${API_BASE}/flatten`, { method: 'POST' })
       if (!res.ok) {
-        // WR-02: surface non-2xx response so the operator knows the request failed.
+        // WR-02: surface non-2xx response so the operator knows the request failed
         const errText = await res.text().catch(() => '')
         const msg = `Flatten failed: ${res.status} ${errText.slice(0, 120)}`
         setFlattenError(msg)
         console.error(msg)
       }
     } catch (e) {
-      // Network error — backend may still have received the request.
       const msg = `Flatten network error: ${String(e).slice(0, 120)}`
       setFlattenError(msg)
       console.error(msg)
@@ -516,61 +165,12 @@ export default function BlotterPage() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
+        height: '100%',
         backgroundColor: '#000000',
         color: '#d1d4dc',
         overflow: 'hidden',
       }}
     >
-      {/* Header */}
-      <header
-        style={{
-          height: '48px',
-          flexShrink: 0,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '16px',
-          padding: '0 16px',
-          borderBottom: '1px solid #222222',
-        }}
-      >
-        {/* Back link */}
-        <Link
-          href="/dashboard"
-          style={{ color: '#888888', textDecoration: 'none', fontSize: '12px' }}
-        >
-          ← Dashboard
-        </Link>
-
-        {/* Spacer pushing title to center */}
-        <div style={{ flex: 1 }} />
-
-        {/* Title */}
-        <span
-          className="font-mono font-bold"
-          style={{ fontSize: '14px', color: '#d1d4dc' }}
-        >
-          BLOTTER
-        </span>
-
-        {/* Spacer pushing right-side controls to the right */}
-        <div style={{ flex: 1 }} />
-
-        {/* Engine state badge */}
-        <EngineStateBadge state={engineState} />
-
-        <ETClock />
-        <div className="flex items-center gap-3">
-          {/* TODO(Phase 7 UI-07): replace hardcoded condition/message with live strategy registry values */}
-          <AuthorTVAlertButton
-            strategyId="orb"
-            condition="ORB long entry threshold"
-            message="ORB strategy alert"
-          />
-          <ConnectionStatus />
-        </div>
-      </header>
-
       {/* WR-02: flatten error banner */}
       {flattenError && (
         <div
@@ -585,6 +185,7 @@ export default function BlotterPage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexShrink: 0,
           }}
         >
           <span>{flattenError}</span>
@@ -597,9 +198,10 @@ export default function BlotterPage() {
         </div>
       )}
 
-      {/* Positions table */}
+      {/* Positions table — flex: 1, overflow: auto (scrollable body) */}
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {isError ? (
+          /* Error state per 07-UI-SPEC §Error States */
           <div
             style={{
               padding: '32px',
@@ -611,6 +213,7 @@ export default function BlotterPage() {
             Failed to load positions. Is the API running? Check uvicorn output.
           </div>
         ) : positions.length === 0 ? (
+          /* Empty state per 07-UI-SPEC §Empty States */
           <div
             style={{
               display: 'flex',
@@ -647,11 +250,7 @@ export default function BlotterPage() {
             }}
           >
             <thead>
-              <tr
-                style={{
-                  borderBottom: '1px solid #222222',
-                }}
-              >
+              <tr style={{ borderBottom: '1px solid #222222' }}>
                 {[
                   'Symbol',
                   'Side',
@@ -683,7 +282,7 @@ export default function BlotterPage() {
               </tr>
             </thead>
             <tbody>
-              {positions.map((pos, idx) => {
+              {positions.map((pos) => {
                 // Unreal P&L — uses point_value from API (FND-06: no hardcoded constants)
                 const pnl =
                   pos.side === 'long'
@@ -789,7 +388,7 @@ export default function BlotterPage() {
         )}
       </div>
 
-      {/* Controls row */}
+      {/* Controls row — 48px, flexShrink 0, at bottom of pane */}
       <div
         style={{
           height: '48px',
@@ -845,7 +444,7 @@ export default function BlotterPage() {
 
         {/* Right: Pause */}
         <button
-          onClick={handlePause}
+          onClick={() => void handlePause()}
           tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') void handlePause() }}
           style={{
@@ -868,7 +467,7 @@ export default function BlotterPage() {
       <ConfirmationDialog
         open={flattenOpen}
         onClose={() => setFlattenOpen(false)}
-        onConfirm={handleFlattenConfirm}
+        onConfirm={() => void handleFlattenConfirm()}
         title="FLATTEN ALL POSITIONS"
         titleColor="#d1d4dc"
         description={`Close all ${positions.length} open position${positions.length !== 1 ? 's' : ''} at next bar open.`}
@@ -885,7 +484,7 @@ export default function BlotterPage() {
       <ConfirmationDialog
         open={killOpen}
         onClose={() => setKillOpen(false)}
-        onConfirm={handleKillConfirm}
+        onConfirm={() => void handleKillConfirm()}
         title="KILL SWITCH"
         titleColor="#dc2626"
         description="Halt all signal processing. Existing positions are held open."
