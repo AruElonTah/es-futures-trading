@@ -197,6 +197,10 @@ def get_backtest_equity(
 
     equity_curve_path: str = row[0]
 
+    # Step 2a: sentinel check — pending run has no equity file yet (CR-01)
+    if equity_curve_path in ("__pending__", ""):
+        raise HTTPException(status_code=404, detail="equity curve not yet available")
+
     # Step 2: resolve path + path-traversal guard (T-03-05-01)
     # equity_curve_path may be absolute (from tests) or relative (from CLI).
     # Try to resolve it; if relative, it is relative to the repo root (4 parents up).

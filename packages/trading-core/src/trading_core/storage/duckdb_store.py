@@ -823,7 +823,7 @@ class DuckDBStore:
                 now_utc,
                 now_utc,
                 "pending",
-                "",
+                "__pending__",
                 now_utc,
                 "pending",
             ],
