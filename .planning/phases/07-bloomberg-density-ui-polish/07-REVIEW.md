@@ -2,35 +2,40 @@
 phase: 07-bloomberg-density-ui-polish
 reviewed: 2026-05-20T00:00:00Z
 depth: standard
-files_reviewed: 27
+files_reviewed: 32
 files_reviewed_list:
+  - packages/trading-core/tests/test_phase7_plan01_foundations.py
+  - packages/api/tests/test_ws_seq.py
+  - packages/api/tests/test_strategies.py
+  - apps/web/e2e/playwright.config.ts
+  - apps/web/e2e/ws-reconnect.spec.ts
   - apps/web/__tests__/TradeHistoryPane.test.ts
-  - apps/web/__tests__/useStream.test.ts
-  - apps/web/app/dashboard/page.tsx
-  - apps/web/components/BlotterPane.tsx
-  - apps/web/components/Chart.tsx
+  - packages/trading-core/src/trading_core/events/models.py
+  - packages/trading-core/src/trading_core/strategy/registry.py
+  - packages/trading-core/src/trading_core/storage/schema.sql
+  - packages/trading-core/src/trading_core/storage/duckdb_store.py
+  - packages/api/src/api/routes/backtests.py
+  - packages/api/src/api/ws.py
+  - packages/api/tests/test_health.py
+  - packages/api/tests/test_routes.py
+  - apps/web/package.json
   - apps/web/components/ConfirmationDialog.tsx
   - apps/web/components/HelpOverlay.tsx
   - apps/web/components/PaneContainer.tsx
-  - apps/web/components/StrategyControlsPane.tsx
-  - apps/web/components/TradeHistoryPane.tsx
-  - apps/web/e2e/playwright.config.ts
-  - apps/web/e2e/ws-reconnect.spec.ts
-  - apps/web/hooks/useBacktests.ts
-  - apps/web/hooks/useStream.ts
-  - apps/web/lib/api.ts
+  - packages/api/src/api/routes/strategies.py
   - apps/web/next.config.ts
   - apps/web/store/ws.ts
-  - apps/web/vitest.config.ts
+  - apps/web/hooks/useStream.ts
+  - apps/web/lib/api.ts
+  - apps/web/hooks/useBacktests.ts
+  - apps/web/app/dashboard/page.tsx
   - packages/api/src/api/app.py
-  - packages/api/src/api/routes/backtests.py
-  - packages/api/src/api/routes/strategies.py
-  - packages/api/src/api/ws.py
-  - packages/api/tests/test_strategies.py
-  - packages/api/tests/test_ws_seq.py
-  - packages/trading-core/src/trading_core/events/models.py
-  - packages/trading-core/src/trading_core/storage/duckdb_store.py
-  - packages/trading-core/src/trading_core/strategy/registry.py
+  - apps/web/components/BlotterPane.tsx
+  - apps/web/components/TradeHistoryPane.tsx
+  - apps/web/components/Chart.tsx
+  - apps/web/components/StrategyControlsPane.tsx
+  - apps/web/e2e/tsconfig.json
+  - apps/web/vitest.config.ts
 findings:
   critical: 4
   warning: 7
@@ -39,491 +44,281 @@ findings:
 status: issues_found
 ---
 
-# Phase 07: Code Review Report
+# Phase 7: Code Review Report
 
 **Reviewed:** 2026-05-20T00:00:00Z
 **Depth:** standard
-**Files Reviewed:** 27
+**Files Reviewed:** 32
 **Status:** issues_found
 
 ## Summary
 
-This phase adds a 4-pane Bloomberg-style terminal layout to the dashboard, including a BlotterPane
-migration, a new TradeHistoryPane with equity+DD chart, a StrategyControlsPane with hot-reload,
-WS reconnect improvements with sequence-number gap detection, and E2E Playwright scaffolding.
-
-The implementation is broadly well-structured. Security posture is good: CORS is restricted,
-path-traversal guards are layered, SQL injection risk is managed with parameterized queries, and
-Pydantic validates API inputs before YAML writes. However, four critical bugs were found:
-one localStorage access that crashes on server render (SSR), one chart lifecycle stale-closure
-bug that fires scrolling on the wrong chart instance, an unguarded `loadSizes()` return value that
-allows persisted corrupt data to pass through without length validation, and a missing `focusedBarTs`
-from the store selector in `TradeHistoryPane` that will cause the focused-row highlight to never
-update. Seven warnings address real quality gaps including silent error swallowing, a race condition
-in the WS reconnect path, and a `get_strategy_enabled` implementation that piggybacks on the
-engine-state table rather than a dedicated column.
+Phase 7 delivers a 4-pane Bloomberg-style terminal layout, strategy controls (toggle/params/run), WS monotonic sequence numbers, and a strategy hot-reload pathway. The architecture is largely coherent and the security posture on the critical paths (path-traversal guards, parameterized SQL, YAML-write-from-validated-model) is solid. However, four blocker-level defects were found spanning correctness, data integrity, and a broken test assumption that causes tests to pass in the wrong scenario. Seven warnings cover logic gaps that degrade reliability or produce silently wrong behavior in production use.
 
 ---
 
 ## Critical Issues
 
-### CR-01: `loadSizes()` called at module parse time — crashes on server render (SSR)
+### CR-01: `write_pending_backtest` stores empty `equity_curve_path` that triggers 403 at the equity endpoint
 
-**File:** `apps/web/app/dashboard/page.tsx:51-56`
+**File:** `packages/trading-core/src/trading_core/storage/duckdb_store.py:817-829`
 
-**Issue:** `loadSizes()` calls `localStorage.getItem()` at the top level of the module, which
-executes during Next.js server-side rendering before any `'use client'` boundary is hydrated.
-The more subtle form of the bug is that `loadSizes()` is called directly as a `defaultSize` prop
-value (lines 247, 271, 279, 316, 334):
+**Issue:** `write_pending_backtest` sets `equity_curve_path = ''`. When the UI transitions the run to `complete` and immediately calls `GET /backtests/{run_id}/equity`, the route at `backtests.py:203-218` resolves the empty string path. `Path('')` resolves to the current working directory (`Path.cwd()`). `Path.cwd().resolve()` then fails `relative_to(_EQUITY_ROOT)` because the CWD is not under `data/parquet/equity/`, triggering the 403 guard with detail `"forbidden equity path"`. The user sees a confusing permission error instead of a "not yet available" indicator. Additionally, this path is never a valid target — the equity file does not exist at CWD — so the correct response before the task finishes is 404, not 403.
 
-```tsx
-defaultSize={loadSizes(LAYOUT_KEY_H, DEFAULT_H_SIZES)[0]}
+**Fix:** Use a sentinel value the equity endpoint can recognize:
+```python
+# In write_pending_backtest:
+[run_id, "orb-v1", "SPY", "1m", now_utc, now_utc, "pending", "__pending__", now_utc, "pending"]
+```
+Then in `get_backtest_equity` before the path-traversal check:
+```python
+if equity_curve_path in ("__pending__", ""):
+    raise HTTPException(status_code=404, detail="equity curve not yet available")
 ```
 
-These calls happen on every render, but React renders components in SSR context before the
-browser runtime is available. On Next.js App Router, `'use client'` does not protect module-level
-code from running in the Node.js server process during SSR — it only marks the component as
-client-only. `localStorage` is `undefined` in the Node.js environment. The `try/catch` in
-`loadSizes()` at line 54 does catch a `ReferenceError` on `undefined.getItem`, so the crash
-is silently swallowed and the default is returned. This means the layout persistence feature
-silently stops working whenever the function is called in SSR context. Additionally, the
-`onLayout` handler at line 241 calls `localStorage.setItem(...)` unconditionally, which crashes
-the server if this component is ever rendered server-side without the try/catch guard.
+---
 
-**Fix:** Gate all `localStorage` access behind `typeof window !== 'undefined'`:
+### CR-02: `TOPIC_STRATEGY_RELOAD` is absent from `ALL_TOPICS` — hot-reload events never reach the browser
 
-```tsx
+**File:** `packages/api/src/api/ws.py:39-48`
+
+**Issue:** `ALL_TOPICS` lists 8 topics for the WS fan-out. `TOPIC_STRATEGY_RELOAD` (introduced in Phase 7 for D-14) is not included. When `PUT /strategies/{id}/params` publishes to this topic, the event is consumed only by the in-process `_strategy_reload_handler` in `app.py` — the browser never receives it. The comment in `ws.py` line 57 still says "all 7 EventBus topics" though there are already 8 in the tuple, confirming the new topic was simply forgotten. Any future frontend handler for strategy-reload confirmation will never fire.
+
+**Fix:**
+```python
+from trading_core.events.models import (
+    ...
+    TOPIC_STRATEGY_RELOAD,
+)
+
+ALL_TOPICS: tuple[str, ...] = (
+    TOPIC_BARS,
+    TOPIC_SIGNALS,
+    TOPIC_RISK_DECISIONS,
+    TOPIC_FILLS,
+    TOPIC_POSITIONS,
+    TOPIC_EQUITY,
+    TOPIC_DEGRADED_STATE,
+    TOPIC_ENGINE_STATE,
+    TOPIC_STRATEGY_RELOAD,   # Phase 7 D-14
+)
+```
+
+---
+
+### CR-03: WS seq tests use `asyncio.get_event_loop().run_until_complete()` across thread boundary — publishes to the wrong event loop
+
+**File:** `packages/api/tests/test_ws_seq.py:68, 91, 117, 144`
+
+**Issue:** All four sequence-counter tests call `asyncio.get_event_loop().run_until_complete(app.state.bus.publish(...))` from inside a synchronous `with client.websocket_connect("/stream") as ws:` block. `TestClient` runs the ASGI app in a background thread using `anyio`. The `app.state.bus` object's internal subscriber queues are bound to the event loop in that background thread. `asyncio.get_event_loop()` in the main thread returns a *different* loop — the one in the main thread. `run_until_complete` on the wrong loop means the `bus.publish()` coroutine runs on a loop that has no subscribers attached, so no message is ever enqueued. On Python 3.12 this also emits `DeprecationWarning: There is no current event loop` and will raise `RuntimeError` on Python 3.14+. The tests may appear to pass due to timing artifacts (e.g., the WS connection itself sends an implicit message on connect) rather than because the publish actually worked.
+
+**Fix:** Publish via an HTTP trigger if one exists, or restructure as `anyio`-native async tests using `AsyncClient` with `ASGITransport`.
+
+---
+
+### CR-04: `loadSizes` accesses `localStorage` at render time — crashes during Next.js SSR/build
+
+**File:** `apps/web/app/dashboard/page.tsx:50-56, 247, 248, 271, 280, 315, 330`
+
+**Issue:** `loadSizes(LAYOUT_KEY_H, DEFAULT_H_SIZES)` is called directly as `defaultSize` prop values during the React render of six `<Panel>` components. Although the file is marked `'use client'`, Next.js 16 pre-renders Client Components on the server during `next build` (for static generation) and for SSR. `localStorage` is browser-only and throws `ReferenceError: localStorage is not defined` in the Node.js rendering environment. This breaks `next build` entirely and causes a 500 on first server-side render in any deployment scenario. The `onLayout` callback at line 241 which writes to `localStorage` is safe (callbacks only fire in the browser), but the read at render time is not.
+
+**Fix:**
+```typescript
 function loadSizes(key: string, fallback: number[]): number[] {
-  if (typeof window === 'undefined') return fallback
+  if (typeof window === 'undefined') return fallback  // SSR guard
   try {
     const raw = localStorage.getItem(key)
-    if (raw) {
-      const parsed = JSON.parse(raw) as number[]
-      // Validate length matches expected layout before trusting persisted data
-      if (Array.isArray(parsed) && parsed.length === fallback.length) return parsed
-    }
+    if (raw) return JSON.parse(raw) as number[]
   } catch { /* silent fallback */ }
   return fallback
 }
 ```
 
-And in `onLayout`:
-```tsx
-onLayout={(sizes: number[]) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(LAYOUT_KEY_H, JSON.stringify(sizes))
-  }
-}}
-```
-
----
-
-### CR-02: Stale-closure bug — `setFocusedBarTs` in `Chart` Effect 3 captures stale `bars` ref
-
-**File:** `apps/web/components/Chart.tsx:226-250`
-
-**Issue:** Effect 3 (the focusedBarTs scroll handler) lists `[focusedBarTs, bars, setFocusedBarTs]`
-as its dependencies. When `focusedBarTs` fires, the effect re-runs with the current `bars` array.
-However, the scroll logic computes a position as `idx - Math.floor(sorted.length * 0.3)`. The
-`scrollToPosition` API takes a logical position from the *current* chart's time scale, where
-position 0 is the rightmost visible bar. If `bars` has changed since the chart was last created
-(e.g., a refetch added bars), `sorted.length` is the full new array length but the chart's
-displayed data may be the previous data (Effect 1 only re-runs when `bars` changes, recreating
-the chart). More critically, after `chart.remove()` in Effect 1's cleanup, `chartRef.current`
-is set to `null` at line 172 **before** `chart.remove()` is called (the comment at line 172
-says "Clear before remove"). But the cleanup order is:
-
-```
-chartRef.current = null  // line 172
-seriesRef.current = null // line 173
-chart.remove()           // line 174
-```
-
-This means if Effect 3 fires concurrently between `chartRef.current = null` and the next chart
-being assigned in the new Effect 1 run, the early-return guard at line 227 fires correctly.
-However, there is a real race between Effect 1's async teardown and Effect 3 firing from a state
-change: React batches state updates but effects can interleave. If `focusedBarTs` is set and
-`bars` changes in the same render cycle, Effect 3 can fire with a stale `chartRef` pointing to
-the destroyed chart, causing a call on a removed chart object.
-
-**Fix:** Add a `mounted` flag inside Effect 3, pattern-matched to Effect 1's approach:
-
-```tsx
-useEffect(() => {
-  if (!focusedBarTs || !seriesRef.current || !chartRef.current) return
-  const chart = chartRef.current
-  if (!chart) return  // defensive double-check after destructuring
-
-  // ... scroll logic ...
-
-  setFocusedBarTs(null)
-}, [focusedBarTs, bars, setFocusedBarTs])
-```
-
-Also move `chartRef.current = null` to **after** `chart.remove()` to prevent the window where
-`chartRef.current` is null but the old chart object is still alive:
-
-```python
-# In Effect 1 cleanup:
-return () => {
-  resizeObserver.disconnect()
-  seriesRef.current = null
-  chart.remove()               // remove first
-  chartRef.current = null      // then null the ref
-}
-```
-
----
-
-### CR-03: `loadSizes()` does not validate persisted array length — corrupt data crashes layout
-
-**File:** `apps/web/app/dashboard/page.tsx:50-56`
-
-**Issue:** `loadSizes()` returns whatever `JSON.parse` produces without checking the length
-of the parsed array against `fallback`. The `react-resizable-panels` library requires that the
-sum of all panel sizes equals 100, and a persisted array with wrong length (e.g., 2 values for a
-3-panel layout after a code change that added a panel) will either crash the library or produce
-a broken invisible layout. This is a correctness bug: any deployment that changes the number of
-panels will silently corrupt the layout for returning users who have persisted sizes.
-
-**Fix:** Validate the length before returning (already shown in CR-01 fix):
-
-```tsx
-if (Array.isArray(parsed) && parsed.length === fallback.length) return parsed
-```
-
----
-
-### CR-04: `focusedBarTs` selector never causes row re-highlight in `TradeHistoryPane`
-
-**File:** `apps/web/components/TradeHistoryPane.tsx:107`
-
-**Issue:** `TradeHistoryPane` reads `focusedBarTs` from the Zustand store at line 107:
-```tsx
-const focusedBarTs = useWsStore((s) => s.focusedBarTs)
-```
-This is used at line 363 to compute `isFocused = focusedBarTs === trade.entry_ts_utc`, which
-drives the `backgroundColor` and `border` styling of focused rows. However, `Chart.tsx` Effect 3
-at line 249 calls `setFocusedBarTs(null)` **after** scrolling, immediately resetting the value.
-This means `focusedBarTs` in `TradeHistoryPane` will be non-null for exactly one render cycle
-(the one that triggered the effect), then immediately cleared before the user can see any
-highlight. The effect is that the focused-row blue highlight border (line 386) never visually
-persists — the highlight fires and is cleared in the same event loop turn via Zustand's
-synchronous `set()`.
-
-This is a behavioral bug: the feature (D-12 click-to-scroll with highlight) is broken by design
-because the same atom is used for two purposes — "trigger scroll" and "show highlight" — and the
-scroll consumer immediately resets the trigger, destroying the highlight.
-
-**Fix:** Split into two atoms: one for the scroll trigger (reset after scroll) and one for the
-persistent highlight selection (only reset when the user clicks a different row):
-
-In `store/ws.ts`:
-```ts
-selectedTradeTs: string | null   // persistent highlight, reset on new click
-focusedBarTs: string | null      // scroll trigger, reset after Chart scrolls
-```
-
-In `TradeHistoryPane`, use `selectedTradeTs` for highlight, set both on row click:
-```tsx
-onClick={() => {
-  setSelectedTradeTs(trade.entry_ts_utc)
-  setFocusedBarTs(trade.entry_ts_utc)
-}}
-```
-
-In `Chart.tsx` Effect 3, only reset `focusedBarTs` (not `selectedTradeTs`).
-
 ---
 
 ## Warnings
 
-### WR-01: `handleKillConfirm` silently swallows kill failures — no user feedback
+### WR-01: `BacktestRow` TypeScript interface missing `status` field — silent `undefined` at runtime
 
-**File:** `apps/web/components/BlotterPane.tsx:150-162`
+**File:** `apps/web/lib/api.ts:26-48`
 
-**Issue:** `handleFlattenConfirm` correctly surfaces errors to the user via `setFlattenError`
-(WR-02 fix noted in comments), but `handleKillConfirm` has an empty `catch` block at line 159:
-```tsx
-} catch {
-  // Fire-and-forget; backend writes audit log
+**Issue:** The `GET /backtests` endpoint now returns a `status` field on every row (Phase 7, via `COALESCE(status, 'complete') AS status`). The `BacktestRow` interface does not include `status`. `useBacktests()` returning `BacktestRow[]` means TypeScript will not catch `backtests[0].status` accesses — they compile cleanly but evaluate to `undefined` at runtime. The workaround in `useStrategyRun` (line 91) uses `BacktestRow & { status?: '...' }` as an inline patch, but this does not fix the type gap for consumers of `useBacktests`.
+
+**Fix:** Add `status` to `BacktestRow`:
+```typescript
+export interface BacktestRow {
+  ...
+  created_at: string
+  status: 'pending' | 'running' | 'complete' | 'failed'
 }
 ```
-And even on a non-OK response (line 154-157), there is no error displayed — the function just
-silently exits. The kill switch is the most critical operator action. If it fails (e.g., API
-is down), the operator has no feedback and may believe positions are protected when they are not.
-
-**Fix:** Parallel the flatten error pattern:
-```tsx
-const [killError, setKillError] = useState<string | null>(null)
-
-async function handleKillConfirm() {
-  setKillOpen(false)
-  try {
-    const res = await fetch(`${API_BASE}/kill`, { method: 'POST' })
-    if (res.ok) {
-      const data = await res.json() as { state: 'running' | 'paused' | 'killed' }
-      setEngineState(data.state)
-    } else {
-      setKillError(`Kill failed: ${res.status}`)
-    }
-  } catch (e) {
-    setKillError(`Kill network error: ${String(e).slice(0, 120)}`)
-  }
-}
-```
+Then simplify `useStrategyRun` to return `BacktestRow` without the inline intersection.
 
 ---
 
-### WR-02: WS reconnect resets `attempt` counter on `onopen` before `attempt++` in `onclose`
+### WR-02: `get_strategy_enabled` and `write_strategy_enabled` use `engine_state.session_id` to store per-strategy state — collides with real session IDs
 
-**File:** `apps/web/hooks/useStream.ts:47-58`
+**File:** `packages/trading-core/src/trading_core/storage/duckdb_store.py:757-798`
 
-**Issue:** The reconnect backoff logic has a subtle ordering issue:
+**Issue:** `write_strategy_enabled` inserts into `engine_state` using `session_id = strategy_id` (e.g., `"orb-v1"`). `get_strategy_enabled` queries `WHERE session_id = strategy_id`. The real `write_engine_state` (line 727) uses `session_id = <UUID7>` for global engine transitions. Both write to the same `engine_state` table with no discriminator column. The result: `get_strategy_enabled("orb-v1")` queries only rows inserted by `write_strategy_enabled`, so the global kill-switch (`POST /kill` → `write_engine_state(session_id=UUID, state="killed")`) has no effect on `get_strategy_enabled` output. Strategy controls pane shows strategy as ACTIVE while the engine is globally killed. The states are logically disconnected in a way that will mislead the operator.
 
-```ts
-ws.onopen = () => {
-  setConnected(true)
-  attempt = 0  // reset here
-}
-
-ws.onclose = () => {
-  setConnected(false)
-  if (!stopped) {
-    const delay = Math.min(Math.pow(2, attempt) * 1000, MAX_BACKOFF_MS) + Math.random() * 1000
-    attempt++
-    timerId = setTimeout(connect, delay)
-  }
-}
-```
-
-If the connection opens and immediately closes (e.g., server accepts then drops the WS), `onopen`
-fires first setting `attempt = 0`, then `onclose` fires computing `delay = 2^0 * 1000 = 1000ms`.
-This is correct. However, if the connection never opens (server refuses), only `onclose` fires
-with the current `attempt` value. The problem is that `attempt` is incremented **after** the
-delay is computed. For a sequence of rapid open+close cycles, `attempt` resets to 0 each time
-`onopen` fires, meaning the backoff never actually backs off when the connection repeatedly
-connects and immediately disconnects (e.g., server closes unhealthy connections). This could
-cause rapid reconnect storms against a struggling server.
-
-**Fix:** Only reset `attempt` after the connection has been stable for at least one message:
-```ts
-ws.onopen = () => {
-  setConnected(true)
-  // Don't reset here — reset only after a stable connection
-}
-ws.onmessage = (event) => {
-  attempt = 0  // reset backoff only after first successful message
-  // ... rest of handler
-}
-```
+**Fix:** Add a `kind` column (`'global'` | `'strategy'`) to `engine_state`, or create a dedicated `strategy_state` table that cannot be confused with global engine state.
 
 ---
 
-### WR-03: `_run_backtest_task` task is fire-and-forget with no reference kept — potential silent failure
+### WR-03: `put_strategy_params` uses non-atomic YAML write — file corruption possible on concurrent requests
 
-**File:** `packages/api/src/api/routes/strategies.py:298-303`
+**File:** `packages/api/src/api/routes/strategies.py:201-212`
 
-**Issue:** `asyncio.create_task()` is called without retaining a reference to the returned
-`Task` object:
+**Issue:** The route reads the YAML file, modifies it in memory, then opens the same path with `"w"` and calls `yaml.dump`. Between the truncation (`open("w")`) and the completion of `yaml.dump`, the file is empty or partially written. A concurrent `GET /strategies` request that reads the file during this window receives either empty content or a YAML parse error. The `yaml.safe_load(f) or {}` fallback in `get_strategies` line 138 will silently return `{}` for an empty file, causing the strategy to disappear from the list. Additionally, `yaml.dump` does not preserve comments or key ordering from the original file.
 
+**Fix:** Write to a temporary file then atomically replace:
 ```python
-asyncio.create_task(
-    _run_backtest_task(run_id, request.app.state),
-    name=f"backtest_{run_id}",
-)
-```
-
-In Python, if an `asyncio.Task` object is garbage collected while running, the task is silently
-cancelled. The Python docs explicitly state: "It is recommended to save a reference to the task
-returned by `create_task()`." If the Task finishes with an unhandled exception (not
-`asyncio.CancelledError`), asyncio logs a "Task exception was never retrieved" warning but the
-exception is otherwise lost. The `_run_backtest_task` only wraps its DB update in a
-`try/except`, not its `asyncio.sleep` — so a `CancelledError` during the sleep would also
-leave the row in `status='pending'` forever.
-
-**Fix:** Store the task reference on `app.state` and add an exception-logging callback:
-
-```python
-task = asyncio.create_task(
-    _run_backtest_task(run_id, request.app.state),
-    name=f"backtest_{run_id}",
-)
-task.add_done_callback(lambda t: t.exception() and _log.error("backtest.task_error", exc=t.exception()))
-# Prevent GC: store on app.state (cleanup on app shutdown)
-if not hasattr(request.app.state, '_backtest_tasks'):
-    request.app.state._backtest_tasks = set()
-request.app.state._backtest_tasks.add(task)
-task.add_done_callback(request.app.state._backtest_tasks.discard)
+import os, tempfile
+tmp_path = yaml_path.with_suffix('.yaml.tmp')
+with tmp_path.open("w", encoding="utf-8") as f:
+    yaml.dump(current, f, default_flow_style=False)
+os.replace(tmp_path, yaml_path)
 ```
 
 ---
 
-### WR-04: `get_strategy_enabled` conflates strategy-enabled state with engine kill-state
+### WR-04: `_run_backtest_task` has no `finally` block — failed task leaves `status='pending'` forever, causing infinite polling
 
-**File:** `packages/trading-core/src/trading_core/storage/duckdb_store.py:757-778`
+**File:** `packages/api/src/api/routes/strategies.py:98-114`
 
-**Issue:** `get_strategy_enabled` queries the `engine_state` table using `session_id = strategy_id`
-as a convention to store per-strategy enabled/disabled state. The `engine_state` table was
-designed for engine-level state (`'running'`, `'killed'`, `'paused'`). This creates a semantic
-collision: if the engine kill switch is ever triggered with `session_id` accidentally matching
-a `strategy_id`, it would disable that strategy. More critically, the check `str(row[0]) != 'killed'`
-returns `True` (enabled) for any value including `'running'`, `'paused'`, and any other string.
-If a future caller writes `'paused'` for a strategy (e.g., via a separate pause feature), the
-strategy would be incorrectly reported as enabled.
+**Issue:** The stub background task catches nothing. If `store._conn.execute(...)` raises (e.g., constraint violation, DuckDB lock), the exception is silently swallowed by `asyncio.create_task` (logged at WARNING by asyncio's exception handler but not re-raised). The `backtests` row stays at `status='pending'`. The frontend's `useStrategyRun` polls every 2 seconds indefinitely when status is `'pending'` (`refetchInterval` returns `2000` on line 103 of `useBacktests.ts`). Every subsequent page load reattaches the polling hook to the orphaned `run_id` stored in `StrategyControlsPane` state — eventually creating a background timer leak.
 
-**Fix:** Add a dedicated `strategy_enabled` table or a dedicated column. Minimally, restrict the
-check to only the two expected values:
-
+**Fix:**
 ```python
-state = str(row[0])
-return state in ('running', 'enabled', '')  # only these mean "enabled"
-```
-
-Or better: add a `strategy_state` table with a `boolean enabled` column.
-
----
-
-### WR-05: `ORBConfigUpdate` validator only covers 3 of the 6 displayed fields — silent partial validation
-
-**File:** `packages/api/src/api/routes/strategies.py:61-92`
-
-**Issue:** `ORBConfigUpdate` defines validators for `opening_range_minutes`, `atr_stop_mult`,
-and `r_target`. But `StrategyControlsPane.tsx` displays 6 editable fields including `atr_period`,
-`ema_period`, and `min_range_ticks` (line 52-58 of `StrategyControlsPane.tsx`). These three
-fields pass through the `PUT /strategies/{id}/params` endpoint without any server-side validation
-— a user could send `atr_period: -999` or `ema_period: 0` and the server would silently write
-that to the YAML.
-
-**Fix:** Add validators for the remaining fields:
-
-```python
-atr_period: int | None = None
-ema_period: int | None = None
-min_range_ticks: int | None = None
-
-@field_validator('atr_period', 'ema_period', 'min_range_ticks')
-@classmethod
-def period_positive(cls, v: int | None) -> int | None:
-    if v is not None and v <= 0:
-        raise ValueError('period fields must be positive (> 0)')
-    return v
+async def _run_backtest_task(run_id: str, app_state: object) -> None:
+    store: DuckDBStore = getattr(app_state, "store", None)
+    try:
+        await asyncio.sleep(2)
+        if store is not None:
+            store._conn.execute(
+                "UPDATE backtests SET status = 'complete' WHERE run_id = ?", [run_id]
+            )
+    except Exception as exc:
+        _log.error("backtest.stub_error", run_id=run_id, error=str(exc))
+        if store is not None:
+            try:
+                store._conn.execute(
+                    "UPDATE backtests SET status = 'failed' WHERE run_id = ?", [run_id]
+                )
+            except Exception:
+                pass
 ```
 
 ---
 
-### WR-06: `test_ws_seq.py` uses deprecated `asyncio.get_event_loop().run_until_complete()` — test reliability
+### WR-05: `useStream` casts `positions` payload as `any` — crashes `BlotterPane` if payload shape differs from `Position[]`
 
-**File:** `packages/api/tests/test_ws_seq.py:68, 84, 116, 141`
+**File:** `apps/web/hooks/useStream.ts:111-113`
 
-**Issue:** The tests call `asyncio.get_event_loop().run_until_complete(...)` inside a
-synchronous test body. In Python 3.10+, `asyncio.get_event_loop()` emits a `DeprecationWarning`
-when there is no running event loop, and in Python 3.12 it raises `RuntimeError` in certain
-contexts. The `TestClient` from FastAPI's Starlette runs its own event loop internally. Calling
-`run_until_complete` from outside may reuse or conflict with that loop depending on the OS and
-pytest-asyncio mode, making tests fragile across Python minor versions.
+**Issue:** The `positions` case casts `msg.payload as any` and passes it directly to `setPositions`. The backend Phase 5 `TOPIC_POSITIONS` event model serializes as `{topic, emitted_at, positions: [...]}` via `model_dump(mode="json")` — not a bare array. If the WS fan-out wraps it in `{"type": "positions", "seq": N, "payload": {topic: ..., positions: [...]}}`, then `msg.payload` is an object with a `positions` key, not an array. `setPositions` stores this object as `Position[]`. `BlotterPane` then calls `positions.map(...)` on an object, throwing `TypeError: positions.map is not a function` and crashing the blotter.
 
-**Fix:** Use `asyncio.get_event_loop().run_until_complete()` only in test environments where
-the event loop is guaranteed, or switch to `pytest-asyncio` with `asyncio_mode = "auto"` and
-mark the tests as `async`:
-
-```python
-@pytest.mark.asyncio
-async def test_first_message_has_seq_one(self, tmp_path: Path) -> None:
-    ...
-    await app.state.bus.publish(TOPIC_DEGRADED_STATE, event)
+**Fix:** Extract the array safely:
+```typescript
+case 'positions': {
+  const raw = msg.payload
+  const arr = Array.isArray(raw) ? raw : (raw as Record<string, unknown>).positions
+  if (Array.isArray(arr)) setPositions(arr as Position[])
+  break
+}
 ```
 
 ---
 
-### WR-07: `useEquityTrades` called twice for same `latestRunId` — comment claims dedup but dependency is wrong
+### WR-06: `ConfirmationDialog` Enter key handler can double-invoke `onConfirm` when confirm button has focus
 
-**File:** `apps/web/app/dashboard/page.tsx:163-168`
+**File:** `apps/web/components/ConfirmationDialog.tsx:63-65`
 
-**Issue:** The comment at line 164 says TanStack Query deduplicates the two calls to
-`useEquityTrades(latestRunId)` because they share the same `queryKey ['trades', latestRunId]`.
-This is correct when both hooks are called with the same `runId`. However, `TradeHistoryPane`
-at line 111 computes `effectiveRunId = runId ?? (backtests?.[0]?.run_id ?? null)`. If `runId`
-(passed as `latestRunId` from the parent) and `backtests?.[0]?.run_id` differ (they should not,
-but race conditions between the parent's `useBacktests()` and the child's `useBacktests()` can
-produce different cache snapshots during a brief window), the two hooks may use different keys
-and fire two separate requests. Additionally, `TradeHistoryPane` calls `useBacktests()` again
-internally (line 110), creating a third query for the same data. This is wasteful and creates
-a subtle timing gap: the parent may have `latestRunId = 'run-abc'` while the child's internal
-`useBacktests()` is still loading, causing `effectiveRunId` to be `null` until the child's
-query resolves.
+**Issue:** The `keydown` listener fires `onConfirm()` on Enter when `value === confirmString`. When the confirm button has keyboard focus and the user presses Enter, the browser also fires the button's `onClick` handler (native button behavior for keyboard activation). Both handlers call `onConfirm()` in the same tick. For `handleKillConfirm` and `handleFlattenConfirm` in `BlotterPane.tsx`, this means two POST requests are dispatched to `/kill` or `/flatten`. The kill endpoint writes two `engine_state` rows with `state='killed'`, doubling the audit log entries. The flatten endpoint dispatches flatten twice.
 
-**Fix:** Remove the `useBacktests()` call from inside `TradeHistoryPane` — the parent always
-passes `runId` explicitly. Use `runId` directly without the `??` fallback:
+**Fix:** Call `e.preventDefault()` on the keydown event and close the dialog before calling `onConfirm`:
+```typescript
+if (e.key === 'Enter' && value === confirmString) {
+  e.preventDefault()
+  onConfirm()
+}
+```
+The `onClose()` call should remain in each individual confirm handler after the fetch completes rather than in the keydown handler to keep the dialog visible while the request is in flight.
 
-```tsx
-// In TradeHistoryPane:
-const effectiveRunId = runId  // trust the prop; parent owns the backtest query
+---
+
+### WR-07: `Chart.tsx` Effect 3 `scrollToPosition` offset is calculated in bar-index space, not lightweight-charts logical space
+
+**File:** `apps/web/components/Chart.tsx:242-244`
+
+**Issue:** `chartRef.current.timeScale().scrollToPosition(idx - Math.floor(sorted.length * 0.3), false)` passes a value that can range from approximately -117 to 390 (for 390 1-minute bars). `scrollToPosition` in lightweight-charts v5 takes a **logical bar offset from the current right edge**, where 0 = current rightmost bar, negative = scroll right (future), positive = scroll left (past). Passing `idx` (an absolute index from the left) does not produce a scroll to the target bar — it scrolls an arbitrary distance that is correct only by coincidence when `idx` happens to match a small positive offset. For trades early in the session (e.g., `idx=15`), the chart scrolls only 15 bars left of the current view, not to bar 15.
+
+**Fix:** Compute the offset from the right edge:
+```typescript
+const rightmostIdx = sorted.length - 1
+const barsFromRight = rightmostIdx - idx
+// Center target bar with 30% margin from right
+const position = barsFromRight - Math.floor(sorted.length * 0.3)
+chartRef.current.timeScale().scrollToPosition(position, false)
 ```
 
 ---
 
 ## Info
 
-### IN-01: Magic number `POINT_VALUE = 50` hardcoded in client code contradicts FND-06
+### IN-01: `StrategyRegistry.reload` has no path-safety guard on `strategy_id` at the library level
 
-**File:** `apps/web/components/TradeHistoryPane.tsx:63`
+**File:** `packages/trading-core/src/trading_core/strategy/registry.py:87-120`
 
-**Issue:** The comment at line 59 notes the contradiction: "D-13: hardcode 50 for ES; client
-doesn't call instruments.py". The `BlotterPane.tsx` correctly uses `pos.point_value` from the
-API (line 289), but `TradeHistoryPane.tsx` hardcodes `POINT_VALUE = 50` for slippage calculation.
-If the system ever trades MES (point value = 5) or SPY (point value depends on contract size),
-slippage will be reported incorrectly. The server already returns `TradeRow` with `slippage_ticks`
-and `size`; it could also return `slippage_dollars` directly to avoid the client-side calculation.
+**Issue:** The primary lookup at line 107 constructs `d / f"{strategy_id}.yaml"` without validating `strategy_id`. The regex guard exists in the route layer (`strategies.py` line 184) but not inside the library method. If `reload` is ever called from a non-route context (e.g., a CLI script or test helper) with an unsanitized ID containing `../`, the path construction would escape `strategies_dir`. No current caller passes user input directly, so this is a defense-in-depth gap rather than an active vulnerability.
 
-**Fix:** Either add `slippage_dollars` to the `TradeRow` API response, or include `point_value`
-in the `TradeRow` shape and use it in the computation.
-
----
-
-### IN-02: `ConfirmationDialog` uses both `autoFocus` attribute and `setTimeout` focus — redundant
-
-**File:** `apps/web/components/ConfirmationDialog.tsx:135, 55`
-
-**Issue:** The `<input>` element has `autoFocus` at line 135, and the `useEffect` at line 55
-also calls `setTimeout(() => inputRef.current?.focus(), 0)`. These are redundant — both attempt
-to focus the input when the dialog opens. The `setTimeout` approach exists to handle cases where
-the DOM isn't ready yet, but `autoFocus` combined with the dialog's `if (!open) return null`
-pattern means the element is freshly mounted each time the dialog opens, making `autoFocus`
-sufficient on its own. The dual approach can cause focus to be set twice and may interfere with
-accessibility tools.
-
-**Fix:** Remove the `setTimeout` focus call and rely on `autoFocus`.
-
----
-
-### IN-03: `test_get_strategies_returns_list` asserts `len(data) >= 1` — depends on repo state
-
-**File:** `packages/api/tests/test_strategies.py:87`
-
-**Issue:** The test asserts `len(data) >= 1`, which means it implicitly depends on there being
-at least one `*.yaml` file in `config/strategies/`. If tests are run in an environment where
-that directory is empty or missing, the test fails for an environmental reason rather than a
-code defect. This makes the test fragile in CI without the strategy YAML files present.
-
-**Fix:** Either create a temporary strategy YAML in the test using `tmp_path`, or assert that
-the response is a list (without requiring non-empty) and separately test the content of a known
-seeded strategy.
-
----
-
-### IN-04: Unused `import` of `Decimal` in `test_ws_seq.py`
-
-**File:** `packages/api/tests/test_ws_seq.py:16`
-
-**Issue:** `from decimal import Decimal` is imported at line 16 but never used anywhere in the
-test file. This is dead import noise.
-
-**Fix:** Remove the unused import:
+**Fix:** Add an input guard at the top of `reload`:
 ```python
-# Remove this line:
-from decimal import Decimal
+import re
+if not re.match(r'^[a-z0-9_-]+$', str(strategy_id)):
+    raise ValueError(f"Invalid strategy_id: {strategy_id!r}")
 ```
+
+---
+
+### IN-02: `useStrategyRun` polling has no timeout guard — permanently polls if backend never writes a terminal status
+
+**File:** `apps/web/hooks/useBacktests.ts:102-106`
+
+**Issue:** `refetchInterval` returns `2000` when `status === 'pending'` and `false` otherwise. If the background task crashes before writing any status update and `store` is `None` at line 105 (silently skipped), the row stays at `'pending'` and the hook polls at 2-second intervals until the component unmounts. `StrategyControlsPane` holds the `runId` in component state — if the user navigates away and back, the `runId` is lost from state but the network polling from a prior mount is already cleaned up by React. The main risk is during the current session: a permanently-pending run accumulates 1 network request per 2 seconds as long as `StrategyControlsPane` is mounted.
+
+**Fix:** Add a maximum poll duration:
+```typescript
+refetchInterval: (query) => {
+  const data = query.state.data
+  if (!data || data.status === 'pending') {
+    // Stop after 60s regardless
+    const age = Date.now() - (query.state.dataUpdatedAt ?? 0)
+    return age < 60_000 ? 2000 : false
+  }
+  return false
+},
+```
+
+---
+
+### IN-03: `TradeHistoryPane` hold-time computation is in wall-clock minutes, but column is labeled `HOLD` implying bars — ambiguous for non-1m timeframes
+
+**File:** `apps/web/components/TradeHistoryPane.tsx:364-368`
+
+**Issue:** `holdBars` is computed as `(exit_ms - entry_ms) / 60000`, which yields wall-clock minutes. `formatHoldTime` then treats this as a count of 60-second units and formats as `HH:MM`. For 1m bars this is correct. For 5m or 15m bars (supported in the schema), a 3-bar trade spanning 15 minutes of 5m bars would display as `00:15` (minutes), which appears correct but is semantically "15 minutes" not "3 bars". The variable is named `holdBars` but the value is actually `holdMinutes`. This is a naming/semantic bug that will cause confusion if multi-timeframe support is added.
+
+**Fix:** Rename `holdBars` to `holdMinutes` throughout, or compute it only from wall-clock time without the misleading "bars" framing.
+
+---
+
+### IN-04: `test_phase3_endpoints_registered` comment says "Phase 5 surface" but lists Phase 6 and Phase 7 routes
+
+**File:** `packages/api/tests/test_health.py:77-118`
+
+**Issue:** The test comment and docstring describe the "Phase 5 surface" but the expected route list includes `/tv/focus`, `/tv/alerts`, `/tv/alerts/{alert_id}`, `/tv/status` (Phase 6) and `/strategies`, `/strategies/{strategy_id}/params`, `/strategies/{strategy_id}/toggle`, `/backtests/run` (Phase 7). The test function name is `test_phase3_endpoints_registered`. All three — function name, docstring, and expected list — are out of sync with the actual phase. This is a documentation-only issue but creates confusion when the test fails and the developer reads the error message expecting a Phase 3 surface.
+
+**Fix:** Rename to `test_api_endpoints_registered`, update the docstring to say "Phase 7 surface (all routes registered through Phase 7)", and keep the exhaustive list as-is.
 
 ---
 
