@@ -27,7 +27,8 @@ Plans:
 - [x] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel (completed 2026-05-17)
 - [x] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap (completed 2026-05-17)
 - [ ] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel
-- [x] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring (completed 2026-05-19)
+- [x] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring
+ (completed 2026-05-19)
 - [ ] **Phase 7: Bloomberg-Density UI Polish** - Multi-pane Next.js dark/dense layout, WebSocket reconnect with sequence numbers and snapshot resync, trade history + equity curve panel, strategy controls with hot-reload, full hotkey registry
 - [ ] **Phase 8: Operational Hardening + Reproducibility CI** - `Replay` command with byte-identical audit-log assertion, expanded reproducibility CI on Windows, cross-platform path/encoding tests, backup/retention policy
 
@@ -255,6 +256,14 @@ Plans:
 - Lightweight Charts must be mounted inside React `useEffect` directly (vanilla, no wrapper) — already established in Phase 3; this phase scales the chart pane out into the full layout.
 - Strategy hot-reload (UI-07) writes to YAML via the API with Pydantic validation on the way in; invalid params return a 422 with the validator message, not a silent fail.
 - Command palette (`Ctrl+K`) is **deferred to v2** per cross-phase context — do not implement here.
+
+**Plans:** 4 plans
+
+Plans:
+- [ ] 07-01-PLAN.md — EventBus TOPIC_STRATEGY_RELOAD + WS seq counter + backtests status column + Wave 0 test stubs (Wave 1)
+- [ ] 07-02-PLAN.md — next.config.ts redirect + TerminalLayout shell + WsStore/useStream hardening + strategies.py routes (Wave 2)
+- [ ] 07-03-PLAN.md — BlotterPane migration + TradeHistoryPane + Chart.tsx focusedBarTs + delete blotter route (Wave 3)
+- [ ] 07-04-PLAN.md — StrategyControlsPane + Playwright E2E + human-verify checkpoint (Wave 4)
 
 ---
 
