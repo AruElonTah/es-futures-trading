@@ -274,6 +274,9 @@ class TVBridge:
                         # Hold context manager alive until the session breaks
                         await asyncio.Future()  # suspended until exception
             except asyncio.CancelledError:
+                # WR-03: clear session before exiting so is_connected returns False.
+                async with self._session_lock:
+                    self._session = None
                 return
             except Exception as exc:
                 # Clear session on any disconnect/error
