@@ -59,6 +59,7 @@ from api.routes import backtests as backtests_routes
 from api.routes import bars as bars_routes
 from api.routes import optimizations as optimizations_routes
 from api.routes import risk as risk_routes
+from api.routes import strategies as strategies_routes
 from api.routes import tv as tv_routes
 from api.ws import ConnectionManager
 
@@ -223,11 +224,49 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     _log.info("nightly_cleanup_scheduler.started")
 
+    # -----------------------------------------------------------------------
+    # Phase 7 Plan 02: TOPIC_STRATEGY_RELOAD subscriber — hot-reload strategy (D-14)
+    # -----------------------------------------------------------------------
+    from trading_core.events.models import TOPIC_STRATEGY_RELOAD  # noqa: PLC0415
+    from trading_core.strategy.registry import StrategyRegistry  # noqa: PLC0415
+
+    async def _strategy_reload_handler() -> None:
+        """Subscribe to TOPIC_STRATEGY_RELOAD and swap in-memory Strategy instance."""
+        async with app.state.bus.subscribe(TOPIC_STRATEGY_RELOAD) as sub:
+            async for event in sub:
+                if isinstance(event, dict):
+                    payload = event.get("payload", event)
+                else:
+                    payload = event
+                strategy_id = payload.get("strategy_id", "")
+                _log.info("strategy.hot_reload_received", strategy_id=strategy_id)
+                _repo_root2 = _find_repo_root(Path(__file__).resolve())
+                yaml_path = _repo_root2 / "config" / "strategies" / f"{strategy_id}.yaml"
+                if yaml_path.exists():
+                    new_strategy = StrategyRegistry.load(yaml_path)
+                    # Store on app.state for engine to pick up
+                    if not hasattr(app.state, "strategies"):
+                        app.state.strategies = {}
+                    app.state.strategies[strategy_id] = new_strategy
+                    _log.info("strategy.hot_reloaded", strategy_id=strategy_id)
+
+    app.state.strategy_reload_task = asyncio.create_task(
+        _strategy_reload_handler(), name="strategy_reload_handler"
+    )
+    _log.info("strategy_reload_handler.started")
+
     yield
 
     # -----------------------------------------------------------------------
     # Shutdown — cancel background tasks in reverse startup order
     # -----------------------------------------------------------------------
+    # Cancel strategy reload handler (Phase 7 Plan 02)
+    app.state.strategy_reload_task.cancel()
+    try:
+        await app.state.strategy_reload_task
+    except asyncio.CancelledError:
+        pass
+
     # Cancel nightly cleanup scheduler (Phase 6 Plan 04)
     app.state.cleanup_task.cancel()
     try:
@@ -296,7 +335,7 @@ def health() -> dict[str, str]:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     allow_credentials=False,
 )
@@ -305,6 +344,7 @@ app.include_router(bars_routes.router)
 app.include_router(backtests_routes.router)
 app.include_router(optimizations_routes.router)
 app.include_router(risk_routes.router)
+app.include_router(strategies_routes.router)
 app.include_router(tv_routes.router)
 
 

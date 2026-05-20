@@ -752,6 +752,83 @@ class DuckDBStore:
             return "running"
         return str(row[0])
 
+    # ---- Phase 7: Strategy enabled state + pending backtest (D-17) ----------
+
+    def get_strategy_enabled(self, strategy_id: str) -> bool:
+        """Return whether a strategy is currently enabled (D-17).
+
+        Reads the most-recent ``engine_state`` row matching the strategy_id
+        entity in the state column. Returns ``True`` (enabled) unless the
+        latest state is ``'killed'``.
+
+        Args:
+            strategy_id: The strategy identifier (e.g. 'orb-v1').
+
+        Returns:
+            True if the strategy is enabled, False if it has been killed/disabled.
+        """
+        row = self._conn.execute(
+            "SELECT state FROM engine_state "
+            "WHERE session_id = ? "
+            "ORDER BY ts_utc DESC LIMIT 1",
+            [strategy_id],
+        ).fetchone()
+        if row is None:
+            return True  # never explicitly disabled → default enabled
+        return str(row[0]) != "killed"
+
+    def write_strategy_enabled(self, strategy_id: str, enabled: bool) -> None:
+        """Write a new engine_state row for the given strategy (D-17).
+
+        Appends to engine_state with session_id = strategy_id so
+        get_strategy_enabled can read it back. Treats 'running' as enabled
+        and 'killed' as disabled.
+
+        Args:
+            strategy_id: The strategy identifier (e.g. 'orb-v1').
+            enabled: True to enable (state='running'), False to disable (state='killed').
+        """
+        from trading_core.storage.runs import new_run_id  # lazy import; avoids cycle
+        from datetime import datetime, timezone
+
+        state = "running" if enabled else "killed"
+        self._conn.execute(
+            "INSERT INTO engine_state (id, session_id, ts_utc, state) VALUES (?, ?, ?, ?)",
+            [new_run_id(), strategy_id, datetime.now(timezone.utc), state],
+        )
+
+    def write_pending_backtest(self, run_id: str) -> None:
+        """Insert a minimal pending backtest row into the backtests table (D-15).
+
+        Called by POST /backtests/run immediately after accepting the request
+        so the UI can begin polling GET /backtests/{run_id}. The background
+        task updates ``status`` to ``'complete'`` or ``'failed'`` when done.
+
+        Args:
+            run_id: The UUID7 identifier for the new backtest run.
+        """
+        from datetime import datetime, timezone
+
+        now_utc = datetime.now(timezone.utc)
+        self._conn.execute(
+            "INSERT INTO backtests ("
+            "  run_id, strategy_id, symbol, timeframe, from_ts, to_ts, "
+            "  param_hash, equity_curve_path, created_at, status"
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                run_id,
+                "orb-v1",
+                "SPY",
+                "1m",
+                now_utc,
+                now_utc,
+                "pending",
+                "",
+                now_utc,
+                "pending",
+            ],
+        )
+
     # ---- Phase 6: TV overlay + alert writers (TV-02, TV-07) ----------------
 
     def write_tv_overlay(

@@ -1,80 +1,128 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { WS_BASE } from '@/lib/api'
 import { useWsStore } from '@/store/ws'
 
 /**
- * Native WebSocket hook — mounts once on client, routes messages to Zustand.
+ * Native WebSocket hook with exponential backoff reconnect (Phase 7 SP-06).
  *
- * Topics handled in Phase 3:
- *  - 'bars'           → setLastBarAt(Date.now())
- *  - 'degraded_state' → setDegraded({source, reason})
+ * Reconnect loop: delay = min(2^attempt * 1000ms, MAX_BACKOFF_MS) + random jitter
+ * Gap detection: if incoming seq > lastSeq + 1, invalidate positions + backtests queries
+ * Cleanup: stopped flag + clearTimeout + ws.close()
  *
- * Other topics are ignored with a TODO comment for Phase 7.
+ * Topics handled:
+ *  - 'bars'                → setLastBarAt(Date.now())
+ *  - 'degraded_state'      → setDegraded({source, reason})
+ *  - 'engine_state_changed'→ setEngineState(state)
+ *  - 'positions'           → setPositions(payload)
  *
- * D-03-05-03: No exponential backoff in Phase 3 (single operator, single tab).
- * WS reconnect storm accepted — Phase 7 SP-06 adds backoff.
+ * Docs consulted:
+ *  - apps/web/node_modules/next/dist/docs/01-app/03-api-reference/01-directives/use-client.md
  */
+
+const MAX_BACKOFF_MS = 30_000
+
 export function useStream() {
   const setConnected = useWsStore((s) => s.setConnected)
   const setLastBarAt = useWsStore((s) => s.setLastBarAt)
   const setDegraded = useWsStore((s) => s.setDegraded)
   const setEngineState = useWsStore((s) => s.setEngineState)
   const setPositions = useWsStore((s) => s.setPositions)
+  const setLastSeq = useWsStore((s) => s.setLastSeq)
+
+  const lastSeqRef = useRef<number | null>(null)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
-    const ws = new WebSocket(`${WS_BASE}/stream`)
+    let attempt = 0
+    let ws: WebSocket | null = null
+    let timerId: ReturnType<typeof setTimeout> | null = null
+    let stopped = false
 
-    ws.onopen = () => {
-      setConnected(true)
-    }
+    function connect() {
+      ws = new WebSocket(`${WS_BASE}/stream`)
 
-    ws.onclose = () => {
-      setConnected(false)
-    }
+      ws.onopen = () => {
+        setConnected(true)
+        attempt = 0  // reset backoff on successful connection
+      }
 
-    ws.onerror = () => {
-      setConnected(false)
-    }
-
-    ws.onmessage = (event: MessageEvent) => {
-      // Narrow the catch to JSON parse errors only; handler errors surface normally (WR-002).
-      let msg: { type: string; payload: Record<string, unknown> }
-      try {
-        msg = JSON.parse(event.data as string) as {
-          type: string
-          payload: Record<string, unknown>
+      ws.onclose = () => {
+        setConnected(false)
+        if (!stopped) {
+          const delay =
+            Math.min(Math.pow(2, attempt) * 1000, MAX_BACKOFF_MS) +
+            Math.random() * 1000
+          attempt++
+          timerId = setTimeout(connect, delay)
         }
-      } catch {
-        return  // Malformed JSON — skip
       }
-      // Message routing outside the try block so real handler errors surface
-      switch (msg.type) {
-        case 'bars':
-          setLastBarAt(Date.now())
-          break
-        case 'degraded_state':
-          setDegraded({
-            source: (msg.payload.source as string) ?? 'unknown',
-            reason: (msg.payload.reason as string) ?? '',
-          })
-          break
-        case 'engine_state_changed':
-          setEngineState(msg.payload.state as 'running' | 'paused' | 'killed')
-          break
-        case 'positions':
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setPositions(msg.payload as any)
-          break
-        default:
-          // TODO (Phase 7): route fills, equity, signals to queryClient
-          break
+
+      ws.onerror = () => {
+        setConnected(false)
+        // onclose will fire after onerror — reconnect handled there
+      }
+
+      ws.onmessage = (event: MessageEvent) => {
+        // Narrow the catch to JSON parse errors only; handler errors surface normally (WR-002).
+        let msg: { type: string; payload: Record<string, unknown>; seq?: number }
+        try {
+          msg = JSON.parse(event.data as string) as {
+            type: string
+            payload: Record<string, unknown>
+            seq?: number
+          }
+        } catch {
+          return  // Malformed JSON — skip
+        }
+
+        // Gap detection (D-19): if seq jumps, resync via TanStack Query (D-20)
+        const incomingSeq = msg.seq ?? null
+        if (
+          incomingSeq !== null &&
+          lastSeqRef.current !== null &&
+          incomingSeq > lastSeqRef.current + 1
+        ) {
+          void queryClient.invalidateQueries({ queryKey: ['positions'] })
+          void queryClient.invalidateQueries({ queryKey: ['backtests'] })
+        }
+        if (incomingSeq !== null) {
+          lastSeqRef.current = incomingSeq
+          setLastSeq(incomingSeq)
+        }
+
+        // Message routing outside the try block so real handler errors surface
+        switch (msg.type) {
+          case 'bars':
+            setLastBarAt(Date.now())
+            break
+          case 'degraded_state':
+            setDegraded({
+              source: (msg.payload.source as string) ?? 'unknown',
+              reason: (msg.payload.reason as string) ?? '',
+            })
+            break
+          case 'engine_state_changed':
+            setEngineState(msg.payload.state as 'running' | 'paused' | 'killed')
+            break
+          case 'positions':
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            setPositions(msg.payload as any)
+            break
+          default:
+            break
+        }
       }
     }
+
+    connect()
 
     return () => {
-      ws.close()
+      stopped = true
+      if (timerId !== null) clearTimeout(timerId)
+      ws?.close()
     }
-  }, [setConnected, setLastBarAt, setDegraded, setEngineState, setPositions])
+  }, [setConnected, setLastBarAt, setDegraded, setEngineState, setPositions, setLastSeq, queryClient])
 }

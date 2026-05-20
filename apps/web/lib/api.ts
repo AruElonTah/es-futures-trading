@@ -54,6 +54,14 @@ export interface EquityPoint {
   drawdown: number
 }
 
+/** Shape of a strategy from GET /strategies */
+export interface StrategyInfo {
+  strategy_id: string
+  name: string
+  params: Record<string, number | string | boolean>
+  enabled: boolean
+}
+
 /** Shape of a trade row from GET /backtests/{run_id}/trades */
 export interface TradeRow {
   trade_id: string
