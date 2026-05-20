@@ -90,7 +90,8 @@ class TVReplayDataSource:
         """
         self._settings = settings
         self._bus = bus
-        self._mcp_server_path = mcp_server_path or _DEFAULT_MCP_SERVER_PATH
+        # WR-06: prefer settings.tv_mcp_server_path; mcp_server_path kwarg overrides (tests).
+        self._mcp_server_path = mcp_server_path or Path(settings.tv_mcp_server_path)
 
     # ---- helpers ----------------------------------------------------------
 

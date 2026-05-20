@@ -62,8 +62,9 @@ _log = structlog.get_logger(__name__)
 # Eastern timezone for date calculations
 _ET = ZoneInfo("America/New_York")
 
-# Mirror tradingview.py module-level constants so bridge.py is the one-place-of-truth
-# for Phase 6 TV connection parameters.
+# WR-06: fallback used only when mcp_server_path kwarg is explicitly passed.
+# Production code reads settings.tv_mcp_server_path (set in config/system.yaml
+# or TV_MCP_SERVER_PATH env var) via the constructor default below.
 _DEFAULT_MCP_SERVER_PATH = Path(r"C:\Users\Admin\tradingview-mcp-jackson")
 
 _SYMBOL_MAP: dict[str, str] = {
@@ -119,7 +120,9 @@ class TVBridge:
         self._store = store
         self._bus = bus
         self._settings = settings
-        self._mcp_server_path: Path = mcp_server_path or _DEFAULT_MCP_SERVER_PATH
+        # WR-06: prefer settings.tv_mcp_server_path so the path is not hardcoded.
+        # mcp_server_path kwarg overrides (used in tests / dev).
+        self._mcp_server_path: Path = mcp_server_path or Path(settings.tv_mcp_server_path)
 
         # Session state — guarded by _session_lock.
         self._session: ClientSession | None = None

@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # Provider selection (ADR 0001: TradingView primary, Twelve Data secondary).
     default_provider: Literal["twelvedata", "tradingview"] = "tradingview"
 
+    # TradingView MCP server path (WR-06: centralised here, read by both
+    # tv_bridge.bridge and tv_bridge.replay — no more hardcoded paths).
+    # Override via TV_MCP_SERVER_PATH env var or config/system.yaml.
+    tv_mcp_server_path: str = r"C:\Users\Admin\tradingview-mcp-jackson"
+
     @classmethod
     def settings_customise_sources(
         cls,
