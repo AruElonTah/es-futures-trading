@@ -238,11 +238,15 @@ export default function Chart({
     )
 
     if (idx >= 0) {
-      // Scroll so the target bar is ~30% from the left edge
-      chartRef.current.timeScale().scrollToPosition(
-        idx - Math.floor(sorted.length * 0.3),
-        false
-      )
+      // WR-07: scrollToPosition takes a logical offset from the rightmost visible
+      // bar (0 = current right edge, positive = scroll left/past). Convert the
+      // absolute bar index to a right-edge-relative offset so early-session bars
+      // (small idx) scroll correctly instead of only moving a few bars left.
+      const rightmostIdx = sorted.length - 1
+      const barsFromRight = rightmostIdx - idx
+      // Place target bar ~30% from the right edge (leaves context on both sides)
+      const position = barsFromRight - Math.floor(sorted.length * 0.3)
+      chartRef.current.timeScale().scrollToPosition(position, false)
     }
 
     // Reset after scroll so effect doesn't fire again (D-12)
