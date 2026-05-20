@@ -268,7 +268,15 @@ class TVReplayDataSource:
                             bars.append({**bar, "_ts": ts})
                     finally:
                         # Always tear down replay even on partial success (T-06-03-02).
-                        await session.call_tool("replay_stop", {})
+                        # CR-04: wrap with timeout so an unresponsive TV Desktop cannot
+                        # hang the finally block indefinitely.
+                        try:
+                            await asyncio.wait_for(
+                                session.call_tool("replay_stop", {}),
+                                timeout=_REPLAY_STEP_TIMEOUT,
+                            )
+                        except asyncio.TimeoutError:
+                            _log.warning("tv_replay.replay_stop_timeout")
 
         except DataSourceUnavailable:
             raise
