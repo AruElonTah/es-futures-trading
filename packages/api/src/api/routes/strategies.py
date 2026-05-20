@@ -15,6 +15,7 @@ Security:
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 from pathlib import Path
 from typing import Annotated
@@ -207,9 +208,12 @@ async def put_strategy_params(
         current["params"] = {}
     current["params"].update(update_dict)
 
-    # Write YAML back (T-07-02-02: yaml.dump of validated model output only)
-    with yaml_path.open("w", encoding="utf-8") as f:
+    # Write YAML back atomically (WR-03: write to tmp then os.replace to avoid
+    # partial-write corruption visible to concurrent GET /strategies requests).
+    tmp_path = yaml_path.with_suffix('.yaml.tmp')
+    with tmp_path.open("w", encoding="utf-8") as f:
         yaml.dump(current, f, default_flow_style=False)
+    os.replace(tmp_path, yaml_path)
 
     # Publish TOPIC_STRATEGY_RELOAD (D-14)
     bus = get_bus(request)
