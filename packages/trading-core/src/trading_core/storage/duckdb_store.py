@@ -31,6 +31,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import duckdb
+import pandas as pd
 
 
 class _LockedConn:
@@ -61,7 +62,7 @@ class _LockedConn:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._conn, name)
-import pandas as pd
+
 
 # Schema file lives alongside this module. Read verbatim by ensure_schema.
 _SCHEMA_PATH = Path(__file__).parent / "schema.sql"
@@ -807,6 +808,20 @@ class DuckDBStore:
         """
         row = self._conn.execute(GET_TV_ALERT_TV_ID_SQL, [alert_id]).fetchone()
         return str(row[0]) if row is not None else None
+
+    def is_orb_box_drawn(self, session_date: date, strategy_id: str) -> bool:
+        """Return True if an orb_box overlay already exists for this session + strategy.
+
+        Checks tv_overlays for a non-deleted row with shape_kind='orb_box',
+        trading_date matching session_date, and strategy_id matching the caller.
+        Used by TVBridge._draw_orb_box_if_new to avoid duplicate ORB rectangles.
+        """
+        row = self._conn.execute(
+            "SELECT 1 FROM tv_overlays WHERE shape_kind = 'orb_box' "
+            "AND trading_date = ? AND strategy_id = ? AND deleted_at IS NULL",
+            [session_date, strategy_id],
+        ).fetchone()
+        return row is not None
 
     def list_overlays_older_than(self, trading_date: date) -> list[tuple[str, str]]:
         """Return (overlay_id, shape_id) pairs for active overlays older than ``trading_date``.

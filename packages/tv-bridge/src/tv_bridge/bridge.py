@@ -499,14 +499,9 @@ class TVBridge:
         trading_date = signal.ts_utc.astimezone(_ET).date()
         strategy_id = str(signal.strategy_id)
 
-        # Skip if ORB box already drawn for this session
+        # Skip if ORB box already drawn for this session (uses public store method — CR-02)
         try:
-            existing = self._store._conn.execute(
-                "SELECT 1 FROM tv_overlays WHERE shape_kind='orb_box' "
-                "AND trading_date=? AND strategy_id=? AND deleted_at IS NULL",
-                [trading_date, strategy_id],
-            ).fetchone()
-            if existing:
+            if self._store.is_orb_box_drawn(trading_date, strategy_id):
                 return
         except Exception:
             pass  # If query fails, proceed to draw anyway
