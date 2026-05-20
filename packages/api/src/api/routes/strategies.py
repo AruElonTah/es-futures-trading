@@ -100,19 +100,29 @@ async def _run_backtest_task(run_id: str, app_state: object) -> None:
     """Stub background task — sleeps 2s then marks the run complete.
 
     Real BacktestEngine wiring is a separate concern (Phase 8).
+    WR-04: wrapped in try/except so a failure always writes status='failed',
+    preventing the frontend from polling indefinitely on an orphaned run_id.
     """
     import asyncio as _asyncio
-    await _asyncio.sleep(2)
     store: DuckDBStore = getattr(app_state, "store", None)
-    if store is not None:
-        try:
+    try:
+        await _asyncio.sleep(2)
+        if store is not None:
             store._conn.execute(
                 "UPDATE backtests SET status = 'complete' WHERE run_id = ?",
                 [run_id],
             )
             _log.info("backtest.stub_complete", run_id=run_id)
-        except Exception as exc:
-            _log.error("backtest.stub_error", run_id=run_id, error=str(exc))
+    except Exception as exc:
+        _log.error("backtest.stub_error", run_id=run_id, error=str(exc))
+        if store is not None:
+            try:
+                store._conn.execute(
+                    "UPDATE backtests SET status = 'failed' WHERE run_id = ?",
+                    [run_id],
+                )
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
