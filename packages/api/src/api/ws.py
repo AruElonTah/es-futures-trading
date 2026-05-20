@@ -65,6 +65,10 @@ class ConnectionManager:
         self._bus = bus
         # D-06: per-client asyncio.Queue fan-out, no broadcaster dep.
         self._clients: set[asyncio.Queue] = set()
+        # SP-06 / D-19: monotonic sequence counter for WS gap detection.
+        # Starts at 0; incremented to 1 before the first message is dispatched.
+        # Never reset on reconnect — the client uses gaps to detect missed events.
+        self._seq: int = 0
 
     async def connect(self, websocket: WebSocket) -> asyncio.Queue:
         """Accept the WS connection, register a per-client queue, return it."""
@@ -88,17 +92,25 @@ class ConnectionManager:
             try:
                 async with self._bus.subscribe(topic) as sub:
                     async for event in sub:
-                        # D-05 envelope: {"type": "<topic>", "payload": {...}}
+                        # SP-06 / D-19: increment seq before building each message.
+                        # The counter is per-ConnectionManager-instance (per server start).
+                        # Monotonic across all topics — single counter, never resets.
+                        self._seq += 1
+                        seq = self._seq
+
+                        # D-05 envelope: {"type": "<topic>", "seq": N, "payload": {...}}
                         # EventBus accepts both typed Event subclasses (topic + model_dump)
                         # and plain dicts (e.g. TOPIC_ENGINE_STATE publish from risk routes).
                         if isinstance(event, dict):
-                            # Plain dict published directly — already has the
-                            # {type, payload} envelope from the publish site.
-                            msg = json.dumps(event)
+                            # Plain dict published directly — inject seq into a copy.
+                            payload = dict(event)
+                            payload["seq"] = seq
+                            msg = json.dumps(payload)
                         else:
                             msg = json.dumps(
                                 {
                                     "type": event.topic,
+                                    "seq": seq,
                                     "payload": event.model_dump(mode="json"),
                                 }
                             )

@@ -106,9 +106,10 @@ class TestWsStreamEnvelope:
                 raw = ws.receive_text()
                 msg = json.loads(raw)
 
-        assert set(msg.keys()) == {"type", "payload"}, (
-            f"D-05 envelope must have exactly {{type, payload}}; got {msg.keys()}"
-        )
+        # D-05 envelope: {type, seq, payload} — seq added in Phase 7 Plan 01 (SP-06/D-19)
+        assert "type" in msg, f"D-05 envelope must have 'type'; got {msg.keys()}"
+        assert "payload" in msg, f"D-05 envelope must have 'payload'; got {msg.keys()}"
+        assert "seq" in msg, f"D-05 envelope must have 'seq' (SP-06); got {msg.keys()}"
         assert msg["type"] == "degraded_state"
         assert msg["payload"]["source"] == "tradingview_mcp"
         assert msg["payload"]["reason"] == "test"
