@@ -46,8 +46,11 @@ const LAYOUT_KEY_V = 'es-terminal-layout-v'
 const DEFAULT_H_SIZES = [60, 40]
 const DEFAULT_V_SIZES = [30, 40, 30]
 
-/** Read persisted layout sizes from localStorage with silent fallback (D-06). */
+/** Read persisted layout sizes from localStorage with silent fallback (D-06).
+ *  SSR guard: returns fallback immediately in Node.js render environment (CR-04).
+ */
 function loadSizes(key: string, fallback: number[]): number[] {
+  if (typeof window === 'undefined') return fallback  // SSR guard — CR-04
   try {
     const raw = localStorage.getItem(key)
     if (raw) return JSON.parse(raw) as number[]
