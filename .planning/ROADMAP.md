@@ -284,6 +284,13 @@ Plans:
 - This phase is the right home for any OP-* pitfall fixes that emerged during phases 1–7 and need a dedicated landing place.
 - After Phase 8, the v1 milestone is shippable: validated, reproducible, leakage-free, and survivable across walk-forward — i.e., the Core Value from PROJECT.md is achievable.
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — replay.py CLI + golden audit-log fixture + byte-identical CI test + --update-golden flag (Wave 1)
+- [ ] 08-02-PLAN.md — GitHub Actions Windows CI (python-tests + frontend-tests, path-with-space, UTF-8) (Wave 2)
+- [ ] 08-03-PLAN.md — backup.ps1 snapshot script + docs/operations/backup.md retention policy (Wave 1)
+
 ---
 
 ## Cross-Phase Guardrails
