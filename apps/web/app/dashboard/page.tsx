@@ -31,6 +31,7 @@ import ConnectionStatus from '@/components/ConnectionStatus'
 import DegradationBanner from '@/components/DegradationBanner'
 import PaneContainer from '@/components/PaneContainer'
 import BlotterPane from '@/components/BlotterPane'
+import TradeHistoryPane from '@/components/TradeHistoryPane'
 import AuthorTVAlertButton from '@/components/AuthorTVAlertButton'
 import { useWsStore } from '@/store/ws'
 import type { BarRow } from '@/lib/api'
@@ -159,7 +160,10 @@ export default function DashboardPage() {
   const { data: backtests } = useBacktests()
   const latestRunId = backtests?.[0]?.run_id ?? null
 
-  // Fetch trades for most-recent backtest (passed to TradeHistoryPane)
+  // Fetch trades for most-recent backtest (for Chart entry markers)
+  // TradeHistoryPane also fetches its own copy for the trade table + equity chart.
+  // TanStack Query deduplicates these: same queryKey ['trades', latestRunId] returns
+  // cached data, so the network hit happens only once.
   const { data: trades } = useEquityTrades(latestRunId)
 
   // Stable empty-array fallbacks — prevent new [] refs on every render while
@@ -302,26 +306,13 @@ export default function DashboardPage() {
               aria-label="Resize blotter and history panels"
             />
 
-            {/* HISTORY pane — TradeHistoryPane wired in Plan 07-03 Task 2 */}
+            {/* HISTORY pane — Plan 07-03 Task 2 (TradeHistoryPane) */}
             <Panel
               defaultSize={loadSizes(LAYOUT_KEY_V, DEFAULT_V_SIZES)[1]}
               style={{ minHeight: '152px' }}
             >
               <PaneContainer label="HISTORY">
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    backgroundColor: '#111111',
-                    color: '#888888',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  {latestRunId ?? 'No backtest results'}
-                </div>
+                <TradeHistoryPane runId={latestRunId} />
               </PaneContainer>
             </Panel>
 
