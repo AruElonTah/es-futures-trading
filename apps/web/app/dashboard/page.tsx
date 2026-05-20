@@ -32,6 +32,7 @@ import DegradationBanner from '@/components/DegradationBanner'
 import PaneContainer from '@/components/PaneContainer'
 import BlotterPane from '@/components/BlotterPane'
 import TradeHistoryPane from '@/components/TradeHistoryPane'
+import StrategyControlsPane from '@/components/StrategyControlsPane'
 import AuthorTVAlertButton from '@/components/AuthorTVAlertButton'
 import { useWsStore } from '@/store/ws'
 import type { BarRow } from '@/lib/api'
@@ -326,26 +327,13 @@ export default function DashboardPage() {
               aria-label="Resize history and controls panels"
             />
 
-            {/* CONTROLS pane — placeholder until Plan 07-04 */}
+            {/* CONTROLS pane — StrategyControlsPane (Plan 07-04) */}
             <Panel
               defaultSize={loadSizes(LAYOUT_KEY_V, DEFAULT_V_SIZES)[2]}
               style={{ minHeight: '100px' }}
             >
               <PaneContainer label="CONTROLS">
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    height: '100%',
-                    backgroundColor: '#111111',
-                    color: '#888888',
-                    fontSize: '12px',
-                    fontFamily: 'monospace',
-                  }}
-                >
-                  Coming in Plan 07-04
-                </div>
+                <StrategyControlsPane />
               </PaneContainer>
             </Panel>
           </PanelGroup>
