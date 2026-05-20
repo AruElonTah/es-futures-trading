@@ -10,12 +10,38 @@ SUMMARY.md "Deviations" #1).
 Plan 03 owns the DST + half-day + rollover fixtures and prepends the tests/
 directory to sys.path so test modules can `from fixtures.dst_bars import ...`
 under --import-mode=importlib (no tests/__init__.py per Plan 01-01).
+
+Plan 08-01 adds the --update-golden option for the replay audit-log golden
+fixture test (SP-04 reproducibility CI).
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+
+
+def pytest_addoption(parser):
+    """Register --update-golden flag for regenerating golden audit-log fixtures.
+
+    When set, test_replay_audit_log_byte_identical (and related tests) will
+    regenerate the committed golden CSV instead of asserting against it.
+
+    Usage:
+        uv run pytest packages/trading-core/tests/integration/test_replay_audit_log.py --update-golden
+
+    Run without the flag to assert (CI mode).
+    """
+    parser.addoption(
+        "--update-golden",
+        action="store_true",
+        default=False,
+        help=(
+            "Regenerate golden audit-log CSV fixture instead of asserting against it. "
+            "Run: uv run pytest packages/trading-core/tests/integration/"
+            "test_replay_audit_log.py --update-golden"
+        ),
+    )
 
 # Make `fixtures/` importable from any test module under --import-mode=importlib.
 # Plan 01-01 decision: no tests/__init__.py to avoid the cross-package conftest
