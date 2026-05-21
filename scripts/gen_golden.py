@@ -266,13 +266,14 @@ async def _generate_golden() -> None:
 
                         _counters["signals"] += 1
 
-                fh.flush()
-
         finally:
             store.close()
 
-    print(f"Golden fixture written: {_GOLDEN_CSV}")
-    print(f"Events written: {_counters['events']}")
+        # WR-03: print inside the with tempfile.TemporaryDirectory block so
+        # _counters is unambiguously in scope, and remove redundant fh.flush()
+        # (the with statement's __exit__ flushes and closes automatically).
+        print(f"Golden fixture written: {_GOLDEN_CSV}")
+        print(f"Events written: {_counters['events']}")
 
 
 if __name__ == "__main__":
