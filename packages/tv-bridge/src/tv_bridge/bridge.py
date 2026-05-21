@@ -28,7 +28,7 @@ Security notes:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -585,9 +585,16 @@ class TVBridge:
         tv_symbol = _SYMBOL_MAP.get(symbol, symbol)
         await self.call_tool("chart_set_symbol", {"symbol": tv_symbol})
         await self.call_tool("chart_set_timeframe", {"timeframe": timeframe})
-        await self.call_tool(
-            "chart_scroll_to_date", {"date": f"{date}T09:30:00-05:00"}
-        )
+        # chart_scroll_to_date is overridden by TV auto-scroll; use
+        # chart_set_visible_range with explicit RTH session bounds instead.
+        year, month, day = (int(x) for x in date.split("-"))
+        buf = timedelta(minutes=30)
+        session_open = datetime(year, month, day, 9, 30, tzinfo=_ET)
+        session_close = datetime(year, month, day, 16, 0, tzinfo=_ET)
+        await self.call_tool("chart_set_visible_range", {
+            "from": int((session_open - buf).timestamp()),
+            "to": int((session_close + buf).timestamp()),
+        })
         _log.info("tv_bridge.focus_complete", symbol=symbol, date=date)
 
     async def create_alert(self, condition: str, message: str) -> str | None:
