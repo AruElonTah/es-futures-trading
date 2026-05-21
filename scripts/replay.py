@@ -176,17 +176,9 @@ async def main(args: argparse.Namespace) -> int:
         store = DuckDBStore(duckdb_path)
         store.ensure_schema()
 
-        # Query bars — parameterized (T-08-01; never f-string interpolation)
-        df = store._conn.execute(
-            """
-            SELECT symbol, timeframe, ts_utc, open, high, low, close, volume,
-                   rollover_seam, provider
-            FROM bars
-            WHERE symbol = ? AND timeframe = ? AND ts_utc >= ? AND ts_utc < ?
-            ORDER BY ts_utc ASC
-            """,
-            [args.symbol, args.tf, args.frm, args.to],
-        ).fetch_df()
+        # Query bars via public DuckDBStore method (WR-06: avoids private _conn access).
+        # Parameterized binding enforced inside query_bars (T-08-01).
+        df = store.query_bars(args.symbol, args.tf, args.frm, args.to)
 
         if df.empty:
             raise RuntimeError(

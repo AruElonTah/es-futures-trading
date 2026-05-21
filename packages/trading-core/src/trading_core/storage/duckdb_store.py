@@ -259,6 +259,42 @@ class DuckDBStore:
             "status VARCHAR DEFAULT 'complete'"
         )
 
+    # ---- bars query (public surface for replay / scripts) -----------------
+
+    def query_bars(
+        self,
+        symbol: str,
+        timeframe: str,
+        frm: datetime,
+        to: datetime,
+    ) -> pd.DataFrame:
+        """Return bars for (symbol, timeframe) in [frm, to) as a DataFrame.
+
+        WR-06: public surface so callers (e.g., replay.py) do not need to
+        access the private ``_conn`` attribute directly.
+
+        Args:
+            symbol:    Instrument symbol (e.g., 'ES', 'SPY').
+            timeframe: Bar timeframe (e.g., '1m', '5m').
+            frm:       Inclusive start timestamp (UTC-aware).
+            to:        Exclusive end timestamp (UTC-aware).
+
+        Returns:
+            DataFrame with columns (symbol, timeframe, ts_utc, open, high,
+            low, close, volume, rollover_seam, provider), ordered by ts_utc
+            ascending. Empty DataFrame when no rows match.
+        """
+        return self._conn.execute(
+            """
+            SELECT symbol, timeframe, ts_utc, open, high, low, close, volume,
+                   rollover_seam, provider
+            FROM bars
+            WHERE symbol = ? AND timeframe = ? AND ts_utc >= ? AND ts_utc < ?
+            ORDER BY ts_utc ASC
+            """,
+            [symbol, timeframe, frm, to],
+        ).fetch_df()
+
     # ---- bars upsert ------------------------------------------------------
 
     def upsert_bars(self, df: pd.DataFrame, *, provider: str) -> int:
