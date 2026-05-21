@@ -9,9 +9,10 @@ interface AuthorTVAlertButtonProps {
   strategyId: string
   condition: string
   message: string
+  price: number
 }
 
-export default function AuthorTVAlertButton({ strategyId, condition, message }: AuthorTVAlertButtonProps) {
+export default function AuthorTVAlertButton({ strategyId, condition, message, price }: AuthorTVAlertButtonProps) {
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   // WR-01: store timer ID so it can be cleared on unmount and before re-arm.
@@ -33,7 +34,7 @@ export default function AuthorTVAlertButton({ strategyId, condition, message }: 
       const res = await fetch(`${API_BASE}/tv/alerts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ strategy_id: strategyId, condition, message }),
+        body: JSON.stringify({ strategy_id: strategyId, condition, message, price }),
       })
       if (!res.ok) {
         const errText = await res.text()

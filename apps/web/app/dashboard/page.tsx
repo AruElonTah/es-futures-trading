@@ -292,6 +292,7 @@ export default function DashboardPage() {
                       strategyId="orb"
                       condition="ORB long entry threshold"
                       message="ORB strategy alert"
+                      price={5500.0}
                     />
                   </>
                 }
