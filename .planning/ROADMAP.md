@@ -26,11 +26,11 @@ Plans:
 - [x] 02-02-PLAN.md — ORBStrategy + YAML config + StrategyRegistry + acceptance tests (Wave 2)
 - [x] **Phase 3: Vertical MVP Slice + Backtester** - Integration gate: one day of bars → ORB → paper fill → chart marker; VectorBT `safe_from_signals` wrapper, BL-1 lookahead detector, EOD flatten, reproducibility CI smoke test, FastAPI REST+WS, Lightweight Charts panel (completed 2026-05-17)
 - [x] **Phase 4: Optimization Grid + Walk-Forward** - Grid expansion, `ProcessPoolExecutor` workers, walk-forward IS/OOS with pre-run ADR gate, true-holdout guard, OOS-ranked leaderboard, 2-param heatmap (completed 2026-05-17)
-- [ ] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel
+- [x] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel (completed 2026-05-18)
 - [x] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring
  (completed 2026-05-19)
 - [x] **Phase 7: Bloomberg-Density UI Polish** - Multi-pane Next.js dark/dense layout, WebSocket reconnect with sequence numbers and snapshot resync, trade history + equity curve panel, strategy controls with hot-reload, full hotkey registry (completed 2026-05-20)
-- [ ] **Phase 8: Operational Hardening + Reproducibility CI** - `Replay` command with byte-identical audit-log assertion, expanded reproducibility CI on Windows, cross-platform path/encoding tests, backup/retention policy
+- [x] **Phase 8: Operational Hardening + Reproducibility CI** - `Replay` command with byte-identical audit-log assertion, expanded reproducibility CI on Windows, cross-platform path/encoding tests, backup/retention policy (completed 2026-05-20)
 
 ## Phase Details
 
@@ -197,14 +197,14 @@ Plans:
 - Per-strategy concurrency cap = 1 active position per strategy ID in v1 (RM-08); multi-strategy is v2.
 - Audit-log writes are synchronous to DuckDB and mirrored to daily CSV — no buffered writes — so they survive `kill -9` (SP-03).
 
-**Plans:** 0/5 plans complete
+**Plans:** 5/5 plans complete
 
 Plans:
-- [ ] 05-01-PLAN.md -- Schema DDL (risk_state/audit_log/engine_state) + model extensions (DrawdownModel/RiskConfig/RiskState) + DuckDB write methods + config/risk.yaml (Wave 1)
-- [ ] 05-02-PLAN.md -- FullRiskManager TDD: size_for_stop, all 3 DrawdownModel variants, worst-case check, DD circuit breaker, concurrency cap (Wave 2)
-- [ ] 05-03-PLAN.md -- BacktestEngine RiskState population + TOPIC_AUDIT event publishing + EventBus routing verification (Wave 2)
-- [ ] 05-04-PLAN.md -- FastAPI POST /kill + POST /flatten + POST /pause + GET /positions + CORS POST + HWM bootstrap + EOD scheduler (Wave 3)
-- [ ] 05-05-PLAN.md -- Blotter UI + useHotkeys registry + dashboard header Blotter link + kill-9 HWM integration test (Wave 4, has human-verify checkpoint)
+- [x] 05-01-PLAN.md — Schema DDL (risk_state/audit_log/engine_state) + model extensions (DrawdownModel/RiskConfig/RiskState) + DuckDB write methods + config/risk.yaml (Wave 1)
+- [x] 05-02-PLAN.md — FullRiskManager TDD: size_for_stop, all 3 DrawdownModel variants, worst-case check, DD circuit breaker, concurrency cap (Wave 2)
+- [x] 05-03-PLAN.md — BacktestEngine RiskState population + TOPIC_AUDIT event publishing + EventBus routing verification (Wave 2)
+- [x] 05-04-PLAN.md — FastAPI POST /kill + POST /flatten + POST /pause + GET /positions + CORS POST + HWM bootstrap + EOD scheduler (Wave 3)
+- [x] 05-05-PLAN.md — Blotter UI + useHotkeys registry + dashboard header Blotter link + kill-9 HWM integration test (Wave 4, human UAT 3/3 passed 2026-05-20)
 
 ---
 
@@ -286,7 +286,7 @@ Plans:
 - This phase is the right home for any OP-* pitfall fixes that emerged during phases 1–7 and need a dedicated landing place.
 - After Phase 8, the v1 milestone is shippable: validated, reproducible, leakage-free, and survivable across walk-forward — i.e., the Core Value from PROJECT.md is achievable.
 
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [x] 08-01-PLAN.md — replay.py CLI + golden audit-log fixture + byte-identical CI test + --update-golden flag (Wave 1)
@@ -318,8 +318,8 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 1. Foundation + Data In | 6/6 | Complete   | 2026-05-15 |
 | 2. Strategy Engine + Indicators | 2/2 | Complete   | 2026-05-16 |
 | 3. Vertical MVP Slice + Backtester | 5/5 | Complete   | 2026-05-17 |
-| 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
-| 5. Risk Manager + Full Audit + Controls | 0/5 | Planned | - |
+| 4. Optimization Grid + Walk-Forward | 3/3 | Complete   | 2026-05-17 |
+| 5. Risk Manager + Full Audit + Controls | 5/5 | Complete   | 2026-05-18 |
 | 6. TradingView MCP Bridge | 4/4 | Complete   | 2026-05-19 |
 | 7. Bloomberg-Density UI Polish | 6/6 | Complete   | 2026-05-21 |
 | 8. Operational Hardening + Reproducibility CI | 3/3 | Complete | 2026-05-20 |
@@ -333,4 +333,4 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 - FND-08 has cross-phase aspects: the `runs` table and hash logging infrastructure is owned by Phase 1 (primary phase); the CI assertion test is introduced in Phase 3 and expanded in Phase 8 — captured in Cross-Phase Guardrails above.
 - MD-10 is owned by Phase 6 (not Phase 1) because daily TV↔Twelve-Data reconciliation requires the TV bridge to exist.
 
-*Last updated: 2026-05-21 — Phase 7 fully closed (6/6 plans; 4-pane TerminalLayout + WS hardening + TradeHistoryPane + StrategyControlsPane + Playwright E2E + 11 code-review fixes + human UAT 8/8 passed; 3 inline fixes in 5e49e3e).*
+*Last updated: 2026-05-21 — v1 milestone complete. All 9 phases (0–8) done. Phase 5 (5/5 plans, 22/22 verified, UAT 3/3 passed 2026-05-20) was completed 2026-05-18 but not reflected in prior ROADMAP updates.*

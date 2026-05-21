@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: completed
-stopped_at: Phase 7 fully closed (2026-05-21)
+stopped_at: v1 milestone complete — all 9 phases done (2026-05-21)
 last_updated: "2026-05-21T00:00:00.000Z"
 last_activity: 2026-05-21
 progress:
   total_phases: 9
-  completed_phases: 8
-  total_plans: 40
-  completed_plans: 39
-  percent: 97
+  completed_phases: 9
+  total_plans: 45
+  completed_plans: 45
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-14)
 
 **Core value:** Trust the numbers — every reported backtest result is reproducible, leakage-free, and survives walk-forward, because every downstream decision compounds on top of it.
-**Current focus:** Phase 07 + 08 complete — v1 milestone done
+**Current focus:** v1 milestone complete — all 9 phases done
 
 ## Current Position
 
 Phase: 08 (operational-hardening-reproducibility-ci) — COMPLETE
 Plan: 3 of 3
-Status: Phase 08 complete (2026-05-20); all 3 plans done
-Last activity: 2026-05-20
+Status: All phases complete — v1 milestone done
+Last activity: 2026-05-21
 
-Phase 7 (bloomberg-density-ui-polish) — COMPLETE (2026-05-21): 6 plans executed, 18/18 must-haves verified, 11 code-review fixes + human UAT 8/8 passed (9558d98–5e49e3e)
+Phase 7 (bloomberg-density-ui-polish) — COMPLETE (2026-05-21): 6 plans, 18/18 verified, human UAT 8/8 passed (9558d98–5e49e3e)
+Phase 5 (risk-manager-full-audit-controls) — COMPLETE (2026-05-18): 5 plans, 22/22 verified, human UAT 3/3 passed (2026-05-20)
 
 Progress: [████████░░] 89%
 
