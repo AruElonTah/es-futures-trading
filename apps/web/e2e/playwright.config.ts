@@ -7,7 +7,7 @@ import { defineConfig, devices } from '@playwright/test'
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: './e2e',
+  testDir: '.',
   timeout: 120_000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,

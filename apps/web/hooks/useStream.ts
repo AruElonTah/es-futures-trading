@@ -50,17 +50,17 @@ export function useStream() {
       }
 
       ws.onclose = () => {
+        if (stopped) return  // intentional cleanup — don't clobber connected state
         setConnected(false)
-        if (!stopped) {
-          const delay =
-            Math.min(Math.pow(2, attempt) * 1000, MAX_BACKOFF_MS) +
-            Math.random() * 1000
-          attempt++
-          timerId = setTimeout(connect, delay)
-        }
+        const delay =
+          Math.min(Math.pow(2, attempt) * 1000, MAX_BACKOFF_MS) +
+          Math.random() * 1000
+        attempt++
+        timerId = setTimeout(connect, delay)
       }
 
       ws.onerror = () => {
+        if (stopped) return  // intentional cleanup
         setConnected(false)
         // onclose will fire after onerror — reconnect handled there
       }

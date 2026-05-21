@@ -46,18 +46,6 @@ const LAYOUT_KEY_V = 'es-terminal-layout-v'
 const DEFAULT_H_SIZES = [60, 40]
 const DEFAULT_V_SIZES = [30, 40, 30]
 
-/** Read persisted layout sizes from localStorage with silent fallback (D-06).
- *  SSR guard: returns fallback immediately in Node.js render environment (CR-04).
- */
-function loadSizes(key: string, fallback: number[]): number[] {
-  if (typeof window === 'undefined') return fallback  // SSR guard — CR-04
-  try {
-    const raw = localStorage.getItem(key)
-    if (raw) return JSON.parse(raw) as number[]
-  } catch { /* D-06: silent fallback — no error shown */ }
-  return fallback
-}
-
 // ---------------------------------------------------------------------------
 // EngineStateBadge (inline — used in BLOTTER pane rightSlot per D-05)
 // ---------------------------------------------------------------------------
@@ -240,14 +228,12 @@ export default function DashboardPage() {
       {/* Terminal body — fills remaining height after header */}
       <PanelGroup
         direction="horizontal"
-        onLayout={(sizes: number[]) =>
-          localStorage.setItem(LAYOUT_KEY_H, JSON.stringify(sizes))
-        }
+        autoSaveId={LAYOUT_KEY_H}
         style={{ flex: 1, overflow: 'hidden' }}
       >
         {/* Left column: CHART pane (60% default) */}
         <Panel
-          defaultSize={loadSizes(LAYOUT_KEY_H, DEFAULT_H_SIZES)[0]}
+          defaultSize={DEFAULT_H_SIZES[0]}
           style={{ minWidth: '400px' }}
         >
           <PaneContainer label="CHART">
@@ -271,16 +257,14 @@ export default function DashboardPage() {
         />
 
         {/* Right column: BLOTTER / HISTORY / CONTROLS (40% default) */}
-        <Panel defaultSize={loadSizes(LAYOUT_KEY_H, DEFAULT_H_SIZES)[1]}>
+        <Panel defaultSize={DEFAULT_H_SIZES[1]}>
           <PanelGroup
             direction="vertical"
-            onLayout={(sizes: number[]) =>
-              localStorage.setItem(LAYOUT_KEY_V, JSON.stringify(sizes))
-            }
+            autoSaveId={LAYOUT_KEY_V}
           >
             {/* BLOTTER pane — Plan 07-03 Task 1 (migrated from /dashboard/blotter) */}
             <Panel
-              defaultSize={loadSizes(LAYOUT_KEY_V, DEFAULT_V_SIZES)[0]}
+              defaultSize={DEFAULT_V_SIZES[0]}
               style={{ minHeight: '120px' }}
             >
               <PaneContainer
@@ -313,7 +297,7 @@ export default function DashboardPage() {
 
             {/* HISTORY pane — Plan 07-03 Task 2 (TradeHistoryPane) */}
             <Panel
-              defaultSize={loadSizes(LAYOUT_KEY_V, DEFAULT_V_SIZES)[1]}
+              defaultSize={DEFAULT_V_SIZES[1]}
               style={{ minHeight: '152px' }}
             >
               <PaneContainer label="HISTORY">
@@ -333,7 +317,7 @@ export default function DashboardPage() {
 
             {/* CONTROLS pane — StrategyControlsPane (Plan 07-04) */}
             <Panel
-              defaultSize={loadSizes(LAYOUT_KEY_V, DEFAULT_V_SIZES)[2]}
+              defaultSize={DEFAULT_V_SIZES[2]}
               style={{ minHeight: '100px' }}
             >
               <PaneContainer label="CONTROLS">
