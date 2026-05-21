@@ -381,15 +381,13 @@ async def main(args: argparse.Namespace) -> int:
                             next_bar = bars[next_bar_idx]
                             entry_fill = await executor.fill_entry(signal, decision, next_bar)
 
-                            # Compute open exposure
-                            if signal.side == "long":
-                                open_exposure = (bar.close - entry_fill.fill_price) * Decimal(entry_fill.fill_qty)
-                            else:
-                                open_exposure = (entry_fill.fill_price - bar.close) * Decimal(entry_fill.fill_qty)
-
+                            # Open exposure at fill time is zero: unrealized P&L
+                            # starts accruing on subsequent bars, not at the instant
+                            # of fill. (CR-02: bar.close was stale signal-bar price,
+                            # not fill price — produced incorrect initial exposure.)
                             risk_state = RiskState(
                                 realized_pnl_today=risk_state.realized_pnl_today,
-                                open_exposure_dollars=open_exposure,
+                                open_exposure_dollars=Decimal("0"),
                                 drawdown_model=risk_state.drawdown_model,
                             )
 
