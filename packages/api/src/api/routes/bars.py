@@ -51,9 +51,7 @@ def get_bars(
 
     Returns an empty list when no bars exist — HTTP 200 (empty is valid).
     """
-    rows = store._conn.execute(_BARS_SQL, [symbol, tf, limit]).fetchall()
-    # Reverse DESC → ASC for chronological chart display
-    rows = list(reversed(rows))
+    rows = list(reversed(store.get_recent_bars(symbol, tf, limit)))
     result: list[dict] = []
     for row in rows:
         # row columns: symbol, timeframe, ts_utc, open, high, low, close, volume, rollover_seam

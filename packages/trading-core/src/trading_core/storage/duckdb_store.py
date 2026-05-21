@@ -53,6 +53,21 @@ class _LockedConn:
         with self._lock:
             return self._conn.execute(*args, **kwargs)
 
+    def execute_fetchall(self, *args: Any, **kwargs: Any) -> list[tuple]:
+        """Execute and fetch all rows inside the lock — safe under concurrent requests."""
+        with self._lock:
+            return self._conn.execute(*args, **kwargs).fetchall()
+
+    def execute_fetchone(self, *args: Any, **kwargs: Any) -> tuple | None:
+        """Execute and fetch one row inside the lock — safe under concurrent requests."""
+        with self._lock:
+            return self._conn.execute(*args, **kwargs).fetchone()
+
+    def execute_fetch_df(self, *args: Any, **kwargs: Any) -> Any:
+        """Execute and fetch a DataFrame inside the lock — safe under concurrent requests."""
+        with self._lock:
+            return self._conn.execute(*args, **kwargs).fetch_df()
+
     def executemany(self, *args: Any, **kwargs: Any) -> Any:
         with self._lock:
             return self._conn.executemany(*args, **kwargs)
@@ -284,7 +299,7 @@ class DuckDBStore:
             low, close, volume, rollover_seam, provider), ordered by ts_utc
             ascending. Empty DataFrame when no rows match.
         """
-        return self._conn.execute(
+        return self._conn.execute_fetch_df(
             """
             SELECT symbol, timeframe, ts_utc, open, high, low, close, volume,
                    rollover_seam, provider
@@ -293,7 +308,22 @@ class DuckDBStore:
             ORDER BY ts_utc ASC
             """,
             [symbol, timeframe, frm, to],
-        ).fetch_df()
+        )
+
+    def get_recent_bars(self, symbol: str, timeframe: str, limit: int) -> list[tuple]:
+        """Return the most-recent ``limit`` bars for (symbol, timeframe).
+
+        Results are ordered ts_utc DESC (newest first). Reverse in the caller
+        for chronological display.
+
+        Fetches results inside the connection lock to avoid cursor-corruption
+        under concurrent FastAPI requests.
+        """
+        return self._conn.execute_fetchall(
+            "SELECT symbol, timeframe, ts_utc, open, high, low, close, volume, rollover_seam "
+            "FROM bars WHERE symbol = ? AND timeframe = ? ORDER BY ts_utc DESC LIMIT ?",
+            [symbol, timeframe, limit],
+        )
 
     # ---- bars upsert ------------------------------------------------------
 
@@ -783,7 +813,7 @@ class DuckDBStore:
         Returns ``'running'`` when the table is empty (safe startup default —
         the engine has never been killed, so it is implicitly running).
         """
-        row = self._conn.execute(GET_ENGINE_STATE_SQL).fetchone()
+        row = self._conn.execute_fetchone(GET_ENGINE_STATE_SQL)
         if row is None:
             return "running"
         return str(row[0])
@@ -803,12 +833,12 @@ class DuckDBStore:
         Returns:
             True if the strategy is enabled, False if it has been killed/disabled.
         """
-        row = self._conn.execute(
+        row = self._conn.execute_fetchone(
             "SELECT state FROM engine_state "
             "WHERE session_id = ? AND kind = 'strategy' "
             "ORDER BY ts_utc DESC LIMIT 1",
             [strategy_id],
-        ).fetchone()
+        )
         if row is None:
             return True  # never explicitly disabled → default enabled
         return str(row[0]) != "killed"
@@ -919,7 +949,7 @@ class DuckDBStore:
 
     def count_active_overlays(self) -> int:
         """Return the count of tv_overlays rows where ``deleted_at IS NULL``."""
-        row = self._conn.execute(COUNT_ACTIVE_OVERLAYS_SQL).fetchone()
+        row = self._conn.execute_fetchone(COUNT_ACTIVE_OVERLAYS_SQL)
         return int(row[0]) if row is not None else 0
 
     def get_tv_alert_tv_id(self, alert_id: str) -> str | None:
@@ -928,7 +958,7 @@ class DuckDBStore:
         Returns the value even if ``deleted_at`` is set — the caller reads
         ``deleted_at`` separately if needed to distinguish active vs deleted.
         """
-        row = self._conn.execute(GET_TV_ALERT_TV_ID_SQL, [alert_id]).fetchone()
+        row = self._conn.execute_fetchone(GET_TV_ALERT_TV_ID_SQL, [alert_id])
         return str(row[0]) if row is not None else None
 
     def is_orb_box_drawn(self, session_date: date, strategy_id: str) -> bool:
