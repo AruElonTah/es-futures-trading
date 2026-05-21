@@ -142,7 +142,7 @@ def test_create_delete_alert(tmp_path: Path) -> None:
         # POST /tv/alerts
         resp = client.post(
             "/tv/alerts",
-            json={"strategy_id": "orb", "condition": "ES>5500", "message": "ORB long"},
+            json={"strategy_id": "orb", "condition": "ES>5500", "price": 5500.0, "message": "ORB long"},
         )
         assert resp.status_code == 201, f"Expected 201, got {resp.status_code}: {resp.text}"
         body = resp.json()

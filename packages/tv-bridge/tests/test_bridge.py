@@ -364,15 +364,17 @@ async def test_focus_call_sequence(
     mock_settings,
     mock_mcp_session: AsyncMock,
 ) -> None:
-    """focus() calls chart_set_symbol → chart_set_timeframe → chart_scroll_to_date in order.
+    """focus() calls chart_set_symbol → chart_set_timeframe → chart_set_visible_range in order.
 
     BLOCKER 1 fix: verifies TV-05 ordered sequence contract without a live TV session.
+    chart_scroll_to_date was replaced by chart_set_visible_range (UAT Gap 1 fix) because
+    TV auto-scroll immediately overrides chart_scroll_to_date.
 
     Assertions:
     - call_tool was awaited exactly 3 times
     - Call 1: ("chart_set_symbol", {...})
     - Call 2: ("chart_set_timeframe", {...})
-    - Call 3: ("chart_scroll_to_date", {...})
+    - Call 3: ("chart_set_visible_range", {"from": <ts>, "to": <ts>}) with from < to
     """
     bridge = TVBridge(store=in_memory_store, bus=EventBus(), settings=mock_settings)
     # Inject mock session
@@ -393,6 +395,13 @@ async def test_focus_call_sequence(
     assert calls[1].args[0] == "chart_set_timeframe", (
         f"Call 2 should be chart_set_timeframe, got {calls[1].args[0]!r}"
     )
-    assert calls[2].args[0] == "chart_scroll_to_date", (
-        f"Call 3 should be chart_scroll_to_date, got {calls[2].args[0]!r}"
+    assert calls[2].args[0] == "chart_set_visible_range", (
+        f"Call 3 should be chart_set_visible_range, got {calls[2].args[0]!r}"
+    )
+    args_dict = calls[2].args[1]
+    assert "from" in args_dict and "to" in args_dict, (
+        f"chart_set_visible_range payload must have 'from' and 'to' keys, got {args_dict!r}"
+    )
+    assert args_dict["from"] < args_dict["to"], (
+        f"'from' must be before 'to', got from={args_dict['from']!r} to={args_dict['to']!r}"
     )
