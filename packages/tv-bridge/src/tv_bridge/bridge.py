@@ -15,10 +15,9 @@ Single-writer convention (from DuckDBStore):
     calls store methods directly. It NEVER opens its own DuckDB connection.
 
 Security notes:
-    T-06-01-02 / T-06-02-04: ``_stderr_capture`` (io.StringIO) is in-memory
-    only and is never written to disk. Plan 04 may surface a sanitized
-    last-error string only after URL-redaction (same pattern as
-    TwelveDataSource._redact_url).
+    T-06-01-02 / T-06-02-04: MCP subprocess stderr goes to sys.stderr (the
+    default). io.StringIO cannot be used on Windows (Popen requires a real fd).
+    Plan 04 may surface a sanitized last-error string via a temp-file or pipe.
     T-06-02-02 (shape cap race): count_active_overlays() check is inside
     ``async with self._draw_semaphore:`` so at most 3 racing tasks can
     over-count by 2. Documented as accepted residual race.
@@ -29,7 +28,6 @@ Security notes:
 from __future__ import annotations
 
 import asyncio
-import io
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -133,9 +131,8 @@ class TVBridge:
         self._draw_semaphore: asyncio.Semaphore = asyncio.Semaphore(3)
 
         # Capture MCP server stderr in-memory for debugging (T-06-02-04).
-        # NOT written to audit_log or disk; future Plan 04 debug surface must
-        # sanitize URL patterns before exposure (same as TwelveDataSource._redact_url).
-        self._stderr_capture: io.StringIO = io.StringIO()
+        # Stderr from the MCP subprocess goes to sys.stderr (the default).
+        # io.StringIO is not usable here on Windows — Popen requires a real fd.
 
         # Task handles — set by start(), cancelled by stop().
         self._supervisor_task: asyncio.Task[None] | None = None
@@ -255,7 +252,7 @@ class TVBridge:
         while True:
             try:
                 async with stdio_client(
-                    self._server_params(), errlog=self._stderr_capture
+                    self._server_params()
                 ) as (r, w):
                     async with ClientSession(r, w) as session:
                         await asyncio.wait_for(
