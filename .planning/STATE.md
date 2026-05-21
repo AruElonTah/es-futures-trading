@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-stopped_at: ""
-last_updated: "2026-05-20T17:30:00.000Z"
-last_activity: 2026-05-20
+status: completed
+stopped_at: Phase 7 fully closed (2026-05-21)
+last_updated: "2026-05-21T00:00:00.000Z"
+last_activity: 2026-05-21
 progress:
   total_phases: 9
-  completed_phases: 9
-  total_plans: 35
-  completed_plans: 35
-  percent: 100
+  completed_phases: 8
+  total_plans: 40
+  completed_plans: 39
+  percent: 97
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: 3 of 3
 Status: Phase 08 complete (2026-05-20); all 3 plans done
 Last activity: 2026-05-20
 
-Phase 7 (bloomberg-density-ui-polish) — COMPLETE (2026-05-20): 4 plans executed, 18/18 must-haves verified, 11 code-review fixes applied to master (9558d98–7734322)
+Phase 7 (bloomberg-density-ui-polish) — COMPLETE (2026-05-21): 6 plans executed, 18/18 must-haves verified, 11 code-review fixes + human UAT 8/8 passed (9558d98–5e49e3e)
 
 Progress: [████████░░] 89%
 
@@ -96,7 +96,7 @@ Recent decisions affecting current work:
 - [Phase 1]: Plan 01-06 — api/__init__.py re-exports `from api.app import app` so `uvicorn api:app` works; consequence: `import api.app` resolves to the FastAPI instance (not the submodule) — tests grab the underlying module via sys.modules["api.app"]
 - [Phase 1]: Plan 01-06 — pytest_plugins = ["trading_core.tests.conftest"] does NOT work under --import-mode=importlib + no tests/__init__.py (Plan 01-01 decision #1); api tests use TestClient directly so the empty conftest stays empty
 - [Phase 1]: Plan 01-06 — fixed pre-existing test_seed_bars_e2e subprocess test (used bare 'uv' which fails on Windows bash where only uv.exe is on PATH); replaced with sys.executable since the test already runs inside uv run pytest
-- [Phase 7]: Gap closure 2026-05-20 — review fix commits (9558d98–7734322) confirmed on master; 8 human UAT tests scheduled via 07-06-PLAN.md
+- [Phase 7]: Gap closure 2026-05-21 — review fix commits (9558d98–7734322) + human UAT 8/8 passed (5e49e3e); 3 inline fixes: useStream StrictMode guard, autoSaveId for layout persistence, playwright.config.ts testDir correction
 
 ### Pending Todos
 
@@ -116,6 +116,6 @@ Items acknowledged and carried forward — none yet, this is project initializat
 
 ## Session Continuity
 
-Last session: 2026-05-20T23:38:56.545Z
-Stopped at: context exhaustion at 77% (2026-05-20)
+Last session: 2026-05-21T16:32:39.608Z
+Stopped at: context exhaustion at 76% (2026-05-21)
 Resume file: None

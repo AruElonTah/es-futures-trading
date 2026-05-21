@@ -257,13 +257,15 @@ Plans:
 - Strategy hot-reload (UI-07) writes to YAML via the API with Pydantic validation on the way in; invalid params return a 422 with the validator message, not a silent fail.
 - Command palette (`Ctrl+K`) is **deferred to v2** per cross-phase context — do not implement here.
 
-**Plans:** 4/4 plans complete
+**Plans:** 6/6 plans complete
 
 Plans:
 - [x] 07-01-PLAN.md — EventBus TOPIC_STRATEGY_RELOAD + WS seq counter + backtests status column + Wave 0 test stubs (Wave 1)
 - [x] 07-02-PLAN.md — next.config.ts redirect + TerminalLayout shell + WsStore/useStream hardening + strategies.py routes (Wave 2)
 - [x] 07-03-PLAN.md — BlotterPane migration + TradeHistoryPane + Chart.tsx focusedBarTs + delete blotter route (Wave 3)
 - [x] 07-04-PLAN.md — StrategyControlsPane + Playwright E2E + human-verify checkpoint (Wave 4)
+- [x] 07-05-PLAN.md — ROADMAP.md + STATE.md tracking updates for Phase 7 completion (Gap closure)
+- [x] 07-06-PLAN.md — Human UAT: all 8 tests passed; 3 inline fixes (useStream StrictMode guard, autoSaveId, playwright testDir) (Gap closure)
 
 ---
 
@@ -319,7 +321,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
 | 5. Risk Manager + Full Audit + Controls | 0/5 | Planned | - |
 | 6. TradingView MCP Bridge | 4/4 | Complete   | 2026-05-19 |
-| 7. Bloomberg-Density UI Polish | 4/4 | Complete   | 2026-05-20 |
+| 7. Bloomberg-Density UI Polish | 6/6 | Complete   | 2026-05-21 |
 | 8. Operational Hardening + Reproducibility CI | 3/3 | Complete | 2026-05-20 |
 
 ---
@@ -331,4 +333,4 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 - FND-08 has cross-phase aspects: the `runs` table and hash logging infrastructure is owned by Phase 1 (primary phase); the CI assertion test is introduced in Phase 3 and expanded in Phase 8 — captured in Cross-Phase Guardrails above.
 - MD-10 is owned by Phase 6 (not Phase 1) because daily TV↔Twelve-Data reconciliation requires the TV bridge to exist.
 
-*Last updated: 2026-05-20 — Phase 7 complete (4/4 plans; 4-pane TerminalLayout + WS hardening + TradeHistoryPane + StrategyControlsPane + Playwright E2E + 11 code-review fixes all on master).*
+*Last updated: 2026-05-21 — Phase 7 fully closed (6/6 plans; 4-pane TerminalLayout + WS hardening + TradeHistoryPane + StrategyControlsPane + Playwright E2E + 11 code-review fixes + human UAT 8/8 passed; 3 inline fixes in 5e49e3e).*
