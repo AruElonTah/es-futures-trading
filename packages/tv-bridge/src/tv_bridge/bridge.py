@@ -597,11 +597,12 @@ class TVBridge:
         })
         _log.info("tv_bridge.focus_complete", symbol=symbol, date=date)
 
-    async def create_alert(self, condition: str, message: str) -> str | None:
+    async def create_alert(self, condition: str, price: float, message: str) -> str | None:
         """Create a TradingView alert via alert_create MCP tool.
 
         Args:
             condition: Alert condition string (max 256 chars via Pydantic validation).
+            price: Price level for the alert (required by MCP alert_create tool).
             message: Alert message text (max 256 chars via Pydantic validation).
 
         Returns:
@@ -609,7 +610,11 @@ class TVBridge:
         """
         response = await self.call_tool(
             "alert_create",
-            {"condition": str(condition)[:256], "message": str(message)[:256]},
+            {
+                "condition": str(condition)[:256],
+                "price": float(price),
+                "message": str(message)[:256],
+            },
         )
         if response is None:
             return None
