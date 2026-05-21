@@ -20,6 +20,18 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# WR-05: sys.path mutation must precede all trading_core imports.
+# Plan 01-01 decision: no tests/__init__.py to avoid the cross-package conftest
+# plugin-registration collision. Consequence: pytest does NOT add the tests/
+# dir to sys.path. We do it here once, at conftest load time.
+_TESTS_DIR = Path(__file__).resolve().parent
+if str(_TESTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_TESTS_DIR))
+
+import pytest  # noqa: E402
+
+from trading_core.instruments import Instrument, get  # noqa: E402
+
 
 def pytest_addoption(parser):
     """Register --update-golden flag for regenerating golden audit-log fixtures.
@@ -42,18 +54,6 @@ def pytest_addoption(parser):
             "test_replay_audit_log.py --update-golden"
         ),
     )
-
-# Make `fixtures/` importable from any test module under --import-mode=importlib.
-# Plan 01-01 decision: no tests/__init__.py to avoid the cross-package conftest
-# plugin-registration collision. Consequence: pytest does NOT add the tests/
-# dir to sys.path. We do it here once, at conftest load time.
-_TESTS_DIR = Path(__file__).resolve().parent
-if str(_TESTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_TESTS_DIR))
-
-import pytest
-
-from trading_core.instruments import Instrument, get
 
 
 @pytest.fixture
