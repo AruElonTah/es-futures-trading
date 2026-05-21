@@ -288,7 +288,7 @@ Plans:
 
 Plans:
 - [x] 08-01-PLAN.md — replay.py CLI + golden audit-log fixture + byte-identical CI test + --update-golden flag (Wave 1)
-- [ ] 08-02-PLAN.md — GitHub Actions Windows CI (python-tests + frontend-tests, path-with-space, UTF-8) (Wave 2)
+- [x] 08-02-PLAN.md — GitHub Actions Windows CI (python-tests + frontend-tests, path-with-space, UTF-8) (Wave 2)
 - [x] 08-03-PLAN.md — backup.ps1 snapshot script + docs/operations/backup.md retention policy (Wave 1)
 
 ---
@@ -320,7 +320,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 5. Risk Manager + Full Audit + Controls | 0/5 | Planned | - |
 | 6. TradingView MCP Bridge | 4/4 | Complete   | 2026-05-19 |
 | 7. Bloomberg-Density UI Polish | 0/TBD | Not started | - |
-| 8. Operational Hardening + Reproducibility CI | 0/TBD | Not started | - |
+| 8. Operational Hardening + Reproducibility CI | 3/3 | Complete | 2026-05-20 |
 
 ---
 
