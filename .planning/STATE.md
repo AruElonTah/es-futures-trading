@@ -109,14 +109,22 @@ None yet.
 
 ## Deferred Items
 
-Items acknowledged and carried forward — none yet, this is project initialization.
+Items acknowledged and deferred at milestone close 2026-05-21:
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| *(none)* | | | |
+| verification_gaps | Phase 01: 01-VERIFICATION.md — gaps_found (5 correctness issues CR-01..04, WR-06) | deferred | 2026-05-21 |
+| verification_gaps | Phase 03: 03-VERIFICATION.md — human_needed (BL-1 win-rate bound loose) | deferred | 2026-05-21 |
+| verification_gaps | Phase 04: 04-VERIFICATION.md — human_needed (browser OPT UI runtime items) | deferred | 2026-05-21 |
+| verification_gaps | Phase 06: 06-VERIFICATION.md — human_needed (ORB box stub coords, Gap-7) | deferred | 2026-05-21 |
+| verification_gaps | Phase 07: 07-VERIFICATION.md — human_needed (resolved via 07-HUMAN-UAT.md 8/8 passed) | deferred | 2026-05-21 |
+| uat_gaps | Phase 04: 04-HUMAN-UAT.md — scanner flag (status=passed, 0 open scenarios; false positive) | deferred | 2026-05-21 |
+
+Known deferred items at close: 6 (see above)
 
 ## Session Continuity
 
-Last session: 2026-05-21T16:32:39.608Z
-Stopped at: context exhaustion at 76% (2026-05-21)
+Last session: 2026-05-21T17:30:00.000Z
+Stopped at: v1.0 milestone complete and archived (2026-05-21)
 Resume file: None
+Next step: `/gsd-new-milestone` to plan v1.1
