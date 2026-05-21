@@ -416,10 +416,12 @@ class TVBridge:
 
     async def _draw_entry_arrow(self, signal: Any) -> None:
         """Draw a horizontal_line entry marker for the signal."""
+        ts_epoch = int(signal.ts_utc.timestamp())
         payload = entry_arrow_args(
             side=str(signal.side),
             entry_price=float(signal.entry),
             signal_id=str(signal.signal_id),
+            signal_ts_epoch=ts_epoch,
         )
         response = await self.call_tool("draw_shape", payload)
         if response is None:
@@ -442,9 +444,11 @@ class TVBridge:
 
     async def _draw_stop_line(self, signal: Any) -> None:
         """Draw a dashed horizontal_line stop marker for the signal."""
+        ts_epoch = int(signal.ts_utc.timestamp())
         payload = stop_line_args(
             stop_price=float(signal.stop),
             signal_id=str(signal.signal_id),
+            signal_ts_epoch=ts_epoch,
         )
         response = await self.call_tool("draw_shape", payload)
         if response is None:
@@ -465,9 +469,11 @@ class TVBridge:
 
     async def _draw_target_line(self, signal: Any) -> None:
         """Draw a dashed horizontal_line target marker for the signal."""
+        ts_epoch = int(signal.ts_utc.timestamp())
         payload = target_line_args(
             target_price=float(signal.target),
             signal_id=str(signal.signal_id),
+            signal_ts_epoch=ts_epoch,
         )
         response = await self.call_tool("draw_shape", payload)
         if response is None:
