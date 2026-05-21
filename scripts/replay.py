@@ -245,206 +245,203 @@ async def main(args: argparse.Namespace) -> int:
 
         # Open the output CSV for writing (UTF-8, no BOM — D-09)
         # Use newline="" so csv.writer controls line endings exactly.
-        output_csv_fh = output_csv_path.open("w", newline="", encoding="utf-8")
-        output_writer = csv.writer(output_csv_fh)
-        output_writer.writerow(_AUDIT_CSV_HEADER)
+        with output_csv_path.open("w", newline="", encoding="utf-8") as output_csv_fh:
+            output_writer = csv.writer(output_csv_fh)
+            output_writer.writerow(_AUDIT_CSV_HEADER)
 
-        # Track open position state for PaperExecutor exit checking
-        open_position: dict | None = None
-        risk_state = RiskState()
-        # event_count and signal_counter are ints mutated via nonlocal in closures
-        _counters = {"events": 0, "signals": 0}
+            # Track open position state for PaperExecutor exit checking
+            open_position: dict | None = None
+            risk_state = RiskState()
+            # event_count and signal_counter are ints mutated via nonlocal in closures
+            _counters = {"events": 0, "signals": 0}
 
-        def _write_output_event(
-            ts_utc: datetime,
-            topic: str,
-            det_entity_id: str,
-            reason_code: str,
-            payload_json: str,
-        ) -> None:
-            """Write one audit event row to the isolated output CSV.
+            def _write_output_event(
+                ts_utc: datetime,
+                topic: str,
+                det_entity_id: str,
+                reason_code: str,
+                payload_json: str,
+            ) -> None:
+                """Write one audit event row to the isolated output CSV.
 
-            event_id and entity_id are both deterministic so the output CSV
-            is byte-identical across runs on the same bars (SP-04).
+                event_id and entity_id are both deterministic so the output CSV
+                is byte-identical across runs on the same bars (SP-04).
 
-            Args:
-                det_entity_id: Deterministic entity identifier (caller is
-                    responsible for not passing random UUIDs here).
-            """
-            # Deterministic event_id: counter-prefixed so same bars -> same CSV
-            det_event_id = f"replay-{_counters['events']:010d}"
-            output_writer.writerow(
-                [det_event_id, ts_utc.isoformat(), topic, det_entity_id, reason_code, payload_json]
-            )
-            _counters["events"] += 1
-
-        # Bar-by-bar replay loop (BL-1 gate: snapshot → on_bar → _push_bar)
-        for i, bar in enumerate(bars):
-            # Build StrategyContext from PRIOR-bar indicator snapshots (look-ahead safe)
-            ctx = StrategyContext(
-                rollover_seam=bar.rollover_seam,
-                warmup_complete=strategy.is_warm(),
-                bar_index=strategy._bar_count,
-                ts_utc=bar.ts_utc,
-                atr=strategy._atr.current,
-                session_vwap=strategy._vwap.current,
-                ema=strategy._ema.current,
-                adr=None,
-            )
-
-            # on_bar BEFORE _push_bar (BL-1 gate: snapshot-before-push)
-            signal = strategy.on_bar(bar, ctx)
-            strategy._push_bar(bar)  # push AFTER on_bar — look-ahead safety
-
-            # Check exit on open position (before processing new signals)
-            if open_position is not None:
-                exit_result = executor.check_exit(
-                    side=open_position["side"],
-                    entry_price=open_position["entry_price"],
-                    stop=open_position["stop"],
-                    target=open_position["target"],
-                    bar=bar,
-                    is_last_rth_bar=(i == len(bars) - 1),
+                Args:
+                    det_entity_id: Deterministic entity identifier (caller is
+                        responsible for not passing random UUIDs here).
+                """
+                # Deterministic event_id: counter-prefixed so same bars -> same CSV
+                det_event_id = f"replay-{_counters['events']:010d}"
+                output_writer.writerow(
+                    [det_event_id, ts_utc.isoformat(), topic, det_entity_id, reason_code, payload_json]
                 )
-                if exit_result is not None:
-                    exit_reason, exit_price = exit_result
-                    exit_fill = await executor.fill_exit(
-                        signal=open_position["entry_signal"],
-                        exit_reason=exit_reason,
-                        exit_price=exit_price,
-                        exit_ts_utc=bar.ts_utc,
-                        fill_qty=open_position["fill_qty"],
-                    )
+                _counters["events"] += 1
 
-                    # Compute realized PnL and update risk state
-                    if open_position["side"] == "long":
-                        pnl = (exit_fill.fill_price - open_position["entry_fill_price"]) * Decimal(open_position["fill_qty"])
-                    else:
-                        pnl = (open_position["entry_fill_price"] - exit_fill.fill_price) * Decimal(open_position["fill_qty"])
-
-                    risk_state = RiskState(
-                        realized_pnl_today=risk_state.realized_pnl_today + pnl,
-                        open_exposure_dollars=Decimal("0"),
-                        drawdown_model=risk_state.drawdown_model,
-                    )
-
-                    # Write exit audit event
-                    exit_payload = json.dumps({
-                        "exit_reason": exit_reason,
-                        "exit_price": str(exit_fill.fill_price),
-                        "fill_qty": exit_fill.fill_qty,
-                        "pnl": str(pnl),
-                    })
-                    store.write_audit_event(
-                        event_id=new_run_id(),
-                        ts_utc=bar.ts_utc,
-                        topic="fills",
-                        entity_id=open_position["entry_signal"].signal_id,
-                        reason_code=exit_reason,
-                        payload_json=exit_payload,
-                    )
-                    _write_output_event(
-                        ts_utc=bar.ts_utc,
-                        topic="fills",
-                        det_entity_id=open_position["det_signal_id"],
-                        reason_code=exit_reason,
-                        payload_json=exit_payload,
-                    )
-
-                    risk_manager.record_position_closed(open_position["entry_signal"].strategy_id)
-                    open_position = None
-
-            # Process new signal if one fired and no position is open
-            if signal is not None and open_position is None:
-                # FullRiskManager.check writes audit event to DuckDB + store CSV internally
-                decision = await risk_manager.check(signal, risk_state)
-
-                # Use a deterministic signal identifier for the output CSV (SP-04)
-                # signal.signal_id is UUID4 (random) — we use a counter instead.
-                det_sig_id = f"signal-{_counters['signals']:06d}"
-
-                # Mirror the risk decision audit event to the output CSV
-                decision_payload = decision.model_dump_json()
-                _write_output_event(
-                    ts_utc=signal.ts_utc,
-                    topic=TOPIC_RISK_DECISIONS,
-                    det_entity_id=det_sig_id,
-                    reason_code=decision.reason,
-                    payload_json=decision_payload,
+            # Bar-by-bar replay loop (BL-1 gate: snapshot → on_bar → _push_bar)
+            for i, bar in enumerate(bars):
+                # Build StrategyContext from PRIOR-bar indicator snapshots (look-ahead safe)
+                ctx = StrategyContext(
+                    rollover_seam=bar.rollover_seam,
+                    warmup_complete=strategy.is_warm(),
+                    bar_index=strategy._bar_count,
+                    ts_utc=bar.ts_utc,
+                    atr=strategy._atr.current,
+                    session_vwap=strategy._vwap.current,
+                    ema=strategy._ema.current,
+                    adr=None,
                 )
 
-                if decision.approved:
-                    # PaperExecutor fill_entry: fill on the NEXT bar's open
-                    # For bar-by-bar replay, the "next bar" is the following bar.
-                    next_bar_idx = i + 1
-                    if next_bar_idx < len(bars):
-                        next_bar = bars[next_bar_idx]
-                        entry_fill = await executor.fill_entry(signal, decision, next_bar)
+                # on_bar BEFORE _push_bar (BL-1 gate: snapshot-before-push)
+                signal = strategy.on_bar(bar, ctx)
+                strategy._push_bar(bar)  # push AFTER on_bar — look-ahead safety
 
-                        # Compute open exposure
-                        if signal.side == "long":
-                            open_exposure = (bar.close - entry_fill.fill_price) * Decimal(entry_fill.fill_qty)
+                # Check exit on open position (before processing new signals)
+                if open_position is not None:
+                    exit_result = executor.check_exit(
+                        side=open_position["side"],
+                        entry_price=open_position["entry_price"],
+                        stop=open_position["stop"],
+                        target=open_position["target"],
+                        bar=bar,
+                        is_last_rth_bar=(i == len(bars) - 1),
+                    )
+                    if exit_result is not None:
+                        exit_reason, exit_price = exit_result
+                        exit_fill = await executor.fill_exit(
+                            signal=open_position["entry_signal"],
+                            exit_reason=exit_reason,
+                            exit_price=exit_price,
+                            exit_ts_utc=bar.ts_utc,
+                            fill_qty=open_position["fill_qty"],
+                        )
+
+                        # Compute realized PnL and update risk state
+                        if open_position["side"] == "long":
+                            pnl = (exit_fill.fill_price - open_position["entry_fill_price"]) * Decimal(open_position["fill_qty"])
                         else:
-                            open_exposure = (entry_fill.fill_price - bar.close) * Decimal(entry_fill.fill_qty)
+                            pnl = (open_position["entry_fill_price"] - exit_fill.fill_price) * Decimal(open_position["fill_qty"])
 
                         risk_state = RiskState(
-                            realized_pnl_today=risk_state.realized_pnl_today,
-                            open_exposure_dollars=open_exposure,
+                            realized_pnl_today=risk_state.realized_pnl_today + pnl,
+                            open_exposure_dollars=Decimal("0"),
                             drawdown_model=risk_state.drawdown_model,
                         )
 
-                        # Write entry fill audit event
-                        entry_payload = json.dumps({
-                            "fill_price": str(entry_fill.fill_price),
-                            "fill_qty": entry_fill.fill_qty,
-                            "side": entry_fill.side,
-                            "slippage_ticks": entry_fill.slippage_ticks,
+                        # Write exit audit event
+                        exit_payload = json.dumps({
+                            "exit_reason": exit_reason,
+                            "exit_price": str(exit_fill.fill_price),
+                            "fill_qty": exit_fill.fill_qty,
+                            "pnl": str(pnl),
                         })
                         store.write_audit_event(
                             event_id=new_run_id(),
-                            ts_utc=next_bar.ts_utc,
+                            ts_utc=bar.ts_utc,
                             topic="fills",
-                            entity_id=signal.signal_id,
-                            reason_code="entry_fill",
-                            payload_json=entry_payload,
+                            entity_id=open_position["entry_signal"].signal_id,
+                            reason_code=exit_reason,
+                            payload_json=exit_payload,
                         )
                         _write_output_event(
-                            ts_utc=next_bar.ts_utc,
+                            ts_utc=bar.ts_utc,
                             topic="fills",
-                            det_entity_id=det_sig_id,
-                            reason_code="entry_fill",
-                            payload_json=entry_payload,
+                            det_entity_id=open_position["det_signal_id"],
+                            reason_code=exit_reason,
+                            payload_json=exit_payload,
                         )
 
-                        risk_manager.record_position_open(
-                            signal.strategy_id,
-                            {
-                                "symbol": args.symbol,
-                                "strategy_id": signal.strategy_id,
+                        risk_manager.record_position_closed(open_position["entry_signal"].strategy_id)
+                        open_position = None
+
+                # Process new signal if one fired and no position is open
+                if signal is not None and open_position is None:
+                    # FullRiskManager.check writes audit event to DuckDB + store CSV internally
+                    decision = await risk_manager.check(signal, risk_state)
+
+                    # Use a deterministic signal identifier for the output CSV (SP-04)
+                    # signal.signal_id is UUID4 (random) — we use a counter instead.
+                    det_sig_id = f"signal-{_counters['signals']:06d}"
+
+                    # Mirror the risk decision audit event to the output CSV
+                    decision_payload = decision.model_dump_json()
+                    _write_output_event(
+                        ts_utc=signal.ts_utc,
+                        topic=TOPIC_RISK_DECISIONS,
+                        det_entity_id=det_sig_id,
+                        reason_code=decision.reason,
+                        payload_json=decision_payload,
+                    )
+
+                    if decision.approved:
+                        # PaperExecutor fill_entry: fill on the NEXT bar's open
+                        # For bar-by-bar replay, the "next bar" is the following bar.
+                        next_bar_idx = i + 1
+                        if next_bar_idx < len(bars):
+                            next_bar = bars[next_bar_idx]
+                            entry_fill = await executor.fill_entry(signal, decision, next_bar)
+
+                            # Compute open exposure
+                            if signal.side == "long":
+                                open_exposure = (bar.close - entry_fill.fill_price) * Decimal(entry_fill.fill_qty)
+                            else:
+                                open_exposure = (entry_fill.fill_price - bar.close) * Decimal(entry_fill.fill_qty)
+
+                            risk_state = RiskState(
+                                realized_pnl_today=risk_state.realized_pnl_today,
+                                open_exposure_dollars=open_exposure,
+                                drawdown_model=risk_state.drawdown_model,
+                            )
+
+                            # Write entry fill audit event
+                            entry_payload = json.dumps({
+                                "fill_price": str(entry_fill.fill_price),
+                                "fill_qty": entry_fill.fill_qty,
+                                "side": entry_fill.side,
+                                "slippage_ticks": entry_fill.slippage_ticks,
+                            })
+                            store.write_audit_event(
+                                event_id=new_run_id(),
+                                ts_utc=next_bar.ts_utc,
+                                topic="fills",
+                                entity_id=signal.signal_id,
+                                reason_code="entry_fill",
+                                payload_json=entry_payload,
+                            )
+                            _write_output_event(
+                                ts_utc=next_bar.ts_utc,
+                                topic="fills",
+                                det_entity_id=det_sig_id,
+                                reason_code="entry_fill",
+                                payload_json=entry_payload,
+                            )
+
+                            risk_manager.record_position_open(
+                                signal.strategy_id,
+                                {
+                                    "symbol": args.symbol,
+                                    "strategy_id": signal.strategy_id,
+                                    "side": signal.side,
+                                    "qty": entry_fill.fill_qty,
+                                    "avg_fill": entry_fill.fill_price,
+                                    "mark": next_bar.close,
+                                    "stop": signal.stop,
+                                    "target": signal.target,
+                                    "entry_ts_utc": next_bar.ts_utc,
+                                },
+                            )
+                            open_position = {
                                 "side": signal.side,
-                                "qty": entry_fill.fill_qty,
-                                "avg_fill": entry_fill.fill_price,
-                                "mark": next_bar.close,
+                                "entry_price": signal.entry,
+                                "entry_fill_price": entry_fill.fill_price,
                                 "stop": signal.stop,
                                 "target": signal.target,
-                                "entry_ts_utc": next_bar.ts_utc,
-                            },
-                        )
-                        open_position = {
-                            "side": signal.side,
-                            "entry_price": signal.entry,
-                            "entry_fill_price": entry_fill.fill_price,
-                            "stop": signal.stop,
-                            "target": signal.target,
-                            "fill_qty": entry_fill.fill_qty,
-                            "entry_signal": signal,
-                            "det_signal_id": det_sig_id,
-                        }
+                                "fill_qty": entry_fill.fill_qty,
+                                "entry_signal": signal,
+                                "det_signal_id": det_sig_id,
+                            }
 
-                _counters["signals"] += 1
-
-        output_csv_fh.flush()
-        output_csv_fh.close()
+                    _counters["signals"] += 1
 
         event_count = _counters["events"]
         log.info("replay.complete", event_count=event_count, output_csv=str(output_csv_path))
