@@ -21,14 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-14)
 
 **Core value:** Trust the numbers — every reported backtest result is reproducible, leakage-free, and survives walk-forward, because every downstream decision compounds on top of it.
-**Current focus:** Phase 08 — operational-hardening-reproducibility-ci (Wave 1 complete, Wave 2 executing)
+**Current focus:** Phase 07 + 08 complete — v1 milestone done
 
 ## Current Position
 
-Phase: 08 (operational-hardening-reproducibility-ci) — EXECUTING
-Plan: 2 of 3
-Status: Phase 08 Wave 1 complete (2026-05-20); plans 08-01 and 08-03 done; Wave 2 (08-02 CI workflow) next
+Phase: 08 (operational-hardening-reproducibility-ci) — COMPLETE
+Plan: 3 of 3
+Status: Phase 08 complete (2026-05-20); all 3 plans done
 Last activity: 2026-05-20
+
+Phase 7 (bloomberg-density-ui-polish) — COMPLETE (2026-05-20): 4 plans executed, 18/18 must-haves verified, 11 code-review fixes applied to master (9558d98–7734322)
 
 Progress: [████████░░] 89%
 
@@ -94,6 +96,7 @@ Recent decisions affecting current work:
 - [Phase 1]: Plan 01-06 — api/__init__.py re-exports `from api.app import app` so `uvicorn api:app` works; consequence: `import api.app` resolves to the FastAPI instance (not the submodule) — tests grab the underlying module via sys.modules["api.app"]
 - [Phase 1]: Plan 01-06 — pytest_plugins = ["trading_core.tests.conftest"] does NOT work under --import-mode=importlib + no tests/__init__.py (Plan 01-01 decision #1); api tests use TestClient directly so the empty conftest stays empty
 - [Phase 1]: Plan 01-06 — fixed pre-existing test_seed_bars_e2e subprocess test (used bare 'uv' which fails on Windows bash where only uv.exe is on PATH); replaced with sys.executable since the test already runs inside uv run pytest
+- [Phase 7]: Gap closure 2026-05-20 — review fix commits (9558d98–7734322) confirmed on master; 8 human UAT tests scheduled via 07-06-PLAN.md
 
 ### Pending Todos
 

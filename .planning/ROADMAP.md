@@ -29,7 +29,7 @@ Plans:
 - [ ] **Phase 5: Risk Manager + Full Audit + Controls** - ATR-based sizing on `instruments.py`, `DrawdownModel` enum (STATIC / TRAILING_EOD / TRAILING_INTRADAY) tracked side-by-side with HWM persistence, daily-DD circuit breaker, wall-clock EOD flatten, audit log surviving `kill -9`, separate kill switch + flatten hotkeys, blotter panel
 - [x] **Phase 6: TradingView MCP Bridge** - `TVBridge` supervisor + stdio MCP client, auto-draw ORB box + signal arrows + stop/target lines, overlay registry with 200-shape cap, `TVReplayDataSource`, `POST /tv/focus`, daily TV↔Twelve-Data reconciliation, alert authoring
  (completed 2026-05-19)
-- [ ] **Phase 7: Bloomberg-Density UI Polish** - Multi-pane Next.js dark/dense layout, WebSocket reconnect with sequence numbers and snapshot resync, trade history + equity curve panel, strategy controls with hot-reload, full hotkey registry
+- [x] **Phase 7: Bloomberg-Density UI Polish** - Multi-pane Next.js dark/dense layout, WebSocket reconnect with sequence numbers and snapshot resync, trade history + equity curve panel, strategy controls with hot-reload, full hotkey registry (completed 2026-05-20)
 - [ ] **Phase 8: Operational Hardening + Reproducibility CI** - `Replay` command with byte-identical audit-log assertion, expanded reproducibility CI on Windows, cross-platform path/encoding tests, backup/retention policy
 
 ## Phase Details
@@ -257,13 +257,13 @@ Plans:
 - Strategy hot-reload (UI-07) writes to YAML via the API with Pydantic validation on the way in; invalid params return a 422 with the validator message, not a silent fail.
 - Command palette (`Ctrl+K`) is **deferred to v2** per cross-phase context — do not implement here.
 
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 07-01-PLAN.md — EventBus TOPIC_STRATEGY_RELOAD + WS seq counter + backtests status column + Wave 0 test stubs (Wave 1)
-- [ ] 07-02-PLAN.md — next.config.ts redirect + TerminalLayout shell + WsStore/useStream hardening + strategies.py routes (Wave 2)
-- [ ] 07-03-PLAN.md — BlotterPane migration + TradeHistoryPane + Chart.tsx focusedBarTs + delete blotter route (Wave 3)
-- [ ] 07-04-PLAN.md — StrategyControlsPane + Playwright E2E + human-verify checkpoint (Wave 4)
+- [x] 07-01-PLAN.md — EventBus TOPIC_STRATEGY_RELOAD + WS seq counter + backtests status column + Wave 0 test stubs (Wave 1)
+- [x] 07-02-PLAN.md — next.config.ts redirect + TerminalLayout shell + WsStore/useStream hardening + strategies.py routes (Wave 2)
+- [x] 07-03-PLAN.md — BlotterPane migration + TradeHistoryPane + Chart.tsx focusedBarTs + delete blotter route (Wave 3)
+- [x] 07-04-PLAN.md — StrategyControlsPane + Playwright E2E + human-verify checkpoint (Wave 4)
 
 ---
 
@@ -319,7 +319,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 | 4. Optimization Grid + Walk-Forward | 0/TBD | Not started | - |
 | 5. Risk Manager + Full Audit + Controls | 0/5 | Planned | - |
 | 6. TradingView MCP Bridge | 4/4 | Complete   | 2026-05-19 |
-| 7. Bloomberg-Density UI Polish | 0/TBD | Not started | - |
+| 7. Bloomberg-Density UI Polish | 4/4 | Complete   | 2026-05-20 |
 | 8. Operational Hardening + Reproducibility CI | 3/3 | Complete | 2026-05-20 |
 
 ---
@@ -331,4 +331,4 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 →
 - FND-08 has cross-phase aspects: the `runs` table and hash logging infrastructure is owned by Phase 1 (primary phase); the CI assertion test is introduced in Phase 3 and expanded in Phase 8 — captured in Cross-Phase Guardrails above.
 - MD-10 is owned by Phase 6 (not Phase 1) because daily TV↔Twelve-Data reconciliation requires the TV bridge to exist.
 
-*Last updated: 2026-05-19 — Phase 6 complete (4/4 plans; TVBridge supervisor + draw engine + REST routes + TVReplayDataSource + reconciliation + nightly cleanup + AuthorTVAlertButton all verified; 520 tests passing).*
+*Last updated: 2026-05-20 — Phase 7 complete (4/4 plans; 4-pane TerminalLayout + WS hardening + TradeHistoryPane + StrategyControlsPane + Playwright E2E + 11 code-review fixes all on master).*
