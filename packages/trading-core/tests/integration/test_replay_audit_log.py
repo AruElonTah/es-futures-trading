@@ -394,6 +394,7 @@ def test_replay_cli_subprocess_matches_golden(tmp_path: Path):
         capture_output=True,
         text=True,
         encoding="utf-8",
+        timeout=120,  # WR-01: fail loudly after 2 minutes to prevent CI hang
     )
 
     # Confirm the CLI printed a valid JSON status line
