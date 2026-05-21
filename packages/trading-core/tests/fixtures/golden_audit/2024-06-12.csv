@@ -1,0 +1,4 @@
+event_id,ts_utc,topic,entity_id,reason_code,payload_json
+replay-0000000000,2024-06-12T14:45:00+00:00,risk_decisions,signal-000000,approved,"{""approved"":true,""reason"":""approved"",""adjusted_size"":2}"
+replay-0000000001,2024-06-12T14:46:00+00:00,fills,signal-000000,entry_fill,"{""fill_price"": ""471.26"", ""fill_qty"": 2, ""side"": ""long"", ""slippage_ticks"": 1}"
+replay-0000000002,2024-06-12T20:59:00+00:00,fills,signal-000000,eod_flat,"{""exit_reason"": ""eod_flat"", ""exit_price"": ""471.25"", ""fill_qty"": 2, ""pnl"": ""-0.02""}"

@@ -45,6 +45,8 @@ _TESTS_DIR = _REPO_ROOT / "packages" / "trading-core" / "tests"
 if _TESTS_DIR.exists() and str(_TESTS_DIR) not in sys.path:
     sys.path.insert(0, str(_TESTS_DIR))
 
+import yaml  # noqa: E402
+
 from trading_core.events.models import TOPIC_RISK_DECISIONS  # noqa: E402
 from trading_core.execution.paper import PaperExecutor  # noqa: E402
 from trading_core.risk.models import RiskConfig, RiskState  # noqa: E402
@@ -79,7 +81,11 @@ async def _generate_golden() -> None:
 
         try:
             strategy = ORBStrategy(ORBConfig())
-            risk_manager = FullRiskManager(config=RiskConfig(), store=store)
+            # Load risk config from the same source as replay.py CLI (T-08-03: yaml.safe_load)
+            risk_config_path = _REPO_ROOT / "config" / "risk.yaml"
+            with risk_config_path.open("r", encoding="utf-8") as _rc_fh:
+                risk_config = RiskConfig(**yaml.safe_load(_rc_fh))
+            risk_manager = FullRiskManager(config=risk_config, store=store, symbol="SPY")
             executor = PaperExecutor("SPY")
 
             # Prepare output CSV
