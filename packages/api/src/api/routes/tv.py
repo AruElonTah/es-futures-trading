@@ -90,6 +90,7 @@ class TVAlertRequest(BaseModel):
 
     strategy_id: str    # max 64 chars enforced by MCP payload cap in bridge
     condition: str      # max 256 chars
+    price: float        # required by alert_create MCP tool
     message: str        # max 256 chars
 
 
@@ -140,7 +141,7 @@ async def create_alert(req: TVAlertRequest, request: Request) -> dict:
     if bridge is None:
         raise HTTPException(503, "TVBridge not available")
 
-    tv_alert_id = await bridge.create_alert(req.condition, req.message)
+    tv_alert_id = await bridge.create_alert(req.condition, req.price, req.message)
     if tv_alert_id is None:
         raise HTTPException(502, "alert_create failed — TVBridge returned no alert_id")
 
