@@ -350,7 +350,6 @@ def test_replay_cli_subprocess_matches_golden(tmp_path: Path):
     test_store.ensure_schema()
     # Write bars into the bars table via upsert_bars (the path replay.py's SELECT queries)
     import pandas as pd  # noqa: PLC0415
-    import pandas as pd_  # noqa: PLC0415, F401 (needed for type)
     bar_records = [
         {
             "symbol": bar.symbol,
