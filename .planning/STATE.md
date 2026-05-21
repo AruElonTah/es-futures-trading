@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: null
-last_updated: "2026-05-20T23:30:00.000Z"
+status: executing
+stopped_at: ""
+last_updated: "2026-05-20T17:15:00.000Z"
 last_activity: 2026-05-20
 progress:
   total_phases: 9
   completed_phases: 8
   total_plans: 35
-  completed_plans: 32
-  percent: 89
+  completed_plans: 34
+  percent: 97
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-14)
 
 **Core value:** Trust the numbers — every reported backtest result is reproducible, leakage-free, and survives walk-forward, because every downstream decision compounds on top of it.
-**Current focus:** Phase 08 — operational-hardening-reproducibility-ci (ready to execute)
+**Current focus:** Phase 08 — operational-hardening-reproducibility-ci (Wave 1 complete, Wave 2 executing)
 
 ## Current Position
 
-Phase: 08 (operational-hardening-reproducibility-ci) — PLANNED
-Plan: 0 of 3
-Status: Phase 08 planned (2026-05-20); 3 plans in 2 waves, ready to execute
+Phase: 08 (operational-hardening-reproducibility-ci) — EXECUTING
+Plan: 2 of 3
+Status: Phase 08 Wave 1 complete (2026-05-20); plans 08-01 and 08-03 done; Wave 2 (08-02 CI workflow) next
 Last activity: 2026-05-20
 
 Progress: [████████░░] 89%
@@ -113,6 +113,6 @@ Items acknowledged and carried forward — none yet, this is project initializat
 
 ## Session Continuity
 
-Last session: 2026-05-20T23:09:10.016Z
-Stopped at: context exhaustion at 75% (2026-05-20)
+Last session: 2026-05-20T23:38:56.545Z
+Stopped at: context exhaustion at 77% (2026-05-20)
 Resume file: None

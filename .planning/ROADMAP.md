@@ -287,9 +287,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 08-01-PLAN.md — replay.py CLI + golden audit-log fixture + byte-identical CI test + --update-golden flag (Wave 1)
+- [x] 08-01-PLAN.md — replay.py CLI + golden audit-log fixture + byte-identical CI test + --update-golden flag (Wave 1)
 - [ ] 08-02-PLAN.md — GitHub Actions Windows CI (python-tests + frontend-tests, path-with-space, UTF-8) (Wave 2)
-- [ ] 08-03-PLAN.md — backup.ps1 snapshot script + docs/operations/backup.md retention policy (Wave 1)
+- [x] 08-03-PLAN.md — backup.ps1 snapshot script + docs/operations/backup.md retention policy (Wave 1)
 
 ---
 
