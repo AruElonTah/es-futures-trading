@@ -28,6 +28,7 @@ Security notes:
 from __future__ import annotations
 
 import asyncio
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -600,29 +601,53 @@ class TVBridge:
     async def create_alert(self, condition: str, price: float, message: str) -> str | None:
         """Create a TradingView alert via alert_create MCP tool.
 
-        Args:
-            condition: Alert condition string (max 256 chars via Pydantic validation).
-            price: Price level for the alert (required by MCP alert_create tool).
-            message: Alert message text (max 256 chars via Pydantic validation).
+        alert_create is DOM-based and returns {success, price, ...} without an
+        alert_id field. After a successful DOM create we call alert_list and
+        match by message text to retrieve the real TV-side alert_id. Falls back
+        to a "dom_<hex>" sentinel when alert_list is unavailable or returns no
+        match — the route still returns 201, but deletion by TV-side ID won't work.
 
         Returns:
-            tv_alert_id string from alert_create response, or None on failure.
+            tv_alert_id string on success, None if the create call itself failed.
         """
+        target_message = str(message)[:256]
         response = await self.call_tool(
             "alert_create",
             {
                 "condition": str(condition)[:256],
                 "price": float(price),
-                "message": str(message)[:256],
+                "message": target_message,
             },
         )
         if response is None:
             return None
-        tv_alert_id = response.get("alert_id") or response.get("id")
-        if not tv_alert_id:
-            _log.warning("tv_bridge.missing_alert_id", response=repr(response))
+
+        # Future-proof: use a direct ID if the tool ever starts returning one.
+        tv_alert_id: str | None = response.get("alert_id") or response.get("id")
+        if tv_alert_id:
+            return str(tv_alert_id)
+
+        if not response.get("success"):
+            _log.warning("tv_bridge.alert_create_failed", response=repr(response))
             return None
-        return str(tv_alert_id)
+
+        # DOM creation succeeded but no ID returned — look it up via alert_list.
+        list_response = await self.call_tool("alert_list", {})
+        if list_response:
+            alerts = list_response.get("alerts") or []
+            matches = [a for a in alerts if a.get("message") == target_message]
+            if matches:
+                # ISO created strings sort lexicographically; newest last.
+                matches.sort(key=lambda a: a.get("created") or "", reverse=True)
+                tv_alert_id = str(matches[0]["alert_id"])
+                _log.info("tv_bridge.alert_id_resolved_via_list", tv_alert_id=tv_alert_id)
+                return tv_alert_id
+
+        # alert_list unavailable or message not found — return a sentinel so the
+        # route can still persist the row; deletion by TV-side ID will not work.
+        sentinel = f"dom_{uuid.uuid4().hex[:12]}"
+        _log.warning("tv_bridge.alert_id_sentinel", sentinel=sentinel, price=price)
+        return sentinel
 
     async def delete_alert(self, tv_alert_id: str) -> None:
         """Delete a TradingView alert via alert_delete MCP tool.
