@@ -53,10 +53,24 @@ if (Test-Path $srcCsv) {
 }
 
 # ─── 4. Retention cleanup — remove backup dirs older than $RetentionDays ───────
+# WR-02: Parse date from directory name (yyyy-MM-dd) rather than using
+# CreationTime, which is unreliable after file copies/restores (e.g., xcopy,
+# robocopy, or OneDrive restores reset CreationTime to "now"). The directory
+# name is the authoritative backup date.
 $backupsRoot = Join-Path $DataRoot "backups"
 if (Test-Path $backupsRoot) {
     Get-ChildItem -Path $backupsRoot -Directory |
-        Where-Object { $_.CreationTime -lt (Get-Date).AddDays(-$RetentionDays) } |
+        Where-Object {
+            $dirDate = $null
+            if ([datetime]::TryParseExact($_.Name, "yyyy-MM-dd",
+                    [System.Globalization.CultureInfo]::InvariantCulture,
+                    [System.Globalization.DateTimeStyles]::None,
+                    [ref]$dirDate)) {
+                $dirDate -lt (Get-Date).Date.AddDays(-$RetentionDays)
+            } else {
+                $false  # leave unknown-named directories alone
+            }
+        } |
         Remove-Item -Recurse -Force
 }
 
