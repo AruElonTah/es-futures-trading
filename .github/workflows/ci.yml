@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  python-tests:
+    runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
+    defaults:
+      run:
+        working-directory: "Day Trading"
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: "Day Trading"
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run pytest --tb=short -q
+
+  frontend-tests:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: "Day Trading"
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: "Day Trading"
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+      - run: pnpm install
+      - run: pnpm --filter web exec vitest run
